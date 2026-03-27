@@ -1,16 +1,26 @@
 @file:OptIn(
     androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.foundation.ExperimentalFoundationApi::class,
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
 )
 
 package ru.custle.mobile.feature.projects
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -20,20 +30,23 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Adjust
 import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Search
-import androidx.compose.material.icons.rounded.Adjust
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +58,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -60,7 +74,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.custle.mobile.core.model.ObjectNodeDto
 
-// ── Dark-friendly accent tones (matching dashboard) ──
+// ── Dark-friendly accent tones ──
 private val BlueDark = Color(0xFF1A2A4D)
 private val BlueText = Color(0xFF8DB0F0)
 private val EmeraldDark = Color(0xFF1A3D2A)
@@ -70,124 +84,231 @@ private val AmberText = Color(0xFFE8C060)
 private val RedDark = Color(0xFF3D1515)
 private val RedText = Color(0xFFE88080)
 
+private enum class StatusFilter(val label: String, val keys: Set<String>) {
+    ALL("Все", emptySet()),
+    IN_PROGRESS("В работе", setOf("in_progress", "в работе")),
+    COMPLETED("Завершён", setOf("completed", "завершён", "завершен")),
+    ON_HOLD("На паузе", setOf("on_hold", "на паузе", "приостановлен")),
+    NOT_STARTED("Не начат", setOf("not_started", "не начат")),
+}
+
 @Composable
 fun ProjectsScreen(
     tree: List<ObjectNodeDto>,
     onOpenObject: (String) -> Unit,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
-    val visibleTree = if (query.isBlank()) tree else filterTree(tree, query.trim())
-    val totalNodes = countNodes(tree)
-    val visibleNodes = countNodes(visibleTree)
-    val activeCount = countActiveNodes(tree)
+    var statusFilter by remember { mutableStateOf(StatusFilter.ALL) }
 
-    LazyColumn(
+    // Navigation stack for drill-down
+    val navStack = remember { mutableStateListOf<ObjectNodeDto>() }
+
+    // Current level nodes
+    val currentNodes = if (navStack.isEmpty()) tree else navStack.last().children
+
+    // Search results (flat with paths)
+    val searchResults = if (query.isNotBlank()) flatSearch(tree, query.trim()) else emptyList()
+
+    // Filtered nodes for current level
+    val displayNodes = when {
+        query.isNotBlank() -> emptyList() // use searchResults instead
+        statusFilter != StatusFilter.ALL -> currentNodes.filter { node ->
+            node.status?.lowercase() in statusFilter.keys
+        }
+        else -> currentNodes
+    }
+
+    val totalNodes = countNodes(tree)
+    val isSearching = query.isNotBlank()
+
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background),
     ) {
         // ── Header ──
-        item {
-            ProjectsHeader(
-                totalNodes = totalNodes,
-                activeCount = activeCount,
-                rootCount = tree.size,
-            )
-        }
+        ProjectsHeader(
+            totalNodes = totalNodes,
+            currentCount = currentNodes.size,
+            navStack = navStack,
+            onNavigateUp = { if (navStack.isNotEmpty()) navStack.removeLast() },
+            onNavigateTo = { index ->
+                // Navigate to specific breadcrumb level
+                while (navStack.size > index + 1) navStack.removeLast()
+            },
+            onNavigateRoot = { navStack.clear() },
+        )
 
         // ── Search ──
-        item {
-            SearchBar(
-                query = query,
-                onQueryChange = { query = it },
-                visibleNodes = visibleNodes,
-                totalNodes = totalNodes,
+        SearchBar(
+            query = query,
+            onQueryChange = { query = it },
+        )
+
+        // ── Status filter chips ──
+        if (!isSearching) {
+            StatusFilterRow(
+                selected = statusFilter,
+                onSelect = { statusFilter = it },
             )
         }
 
-        // ── Tree ──
-        if (visibleTree.isEmpty()) {
-            item { EmptyState(query = query) }
-        } else {
-            treeNodes(visibleTree, 0, onOpenObject)
-        }
+        // ── Content ──
+        AnimatedContent(
+            targetState = navStack.size to isSearching,
+            transitionSpec = {
+                if (targetState.first > initialState.first) {
+                    slideInHorizontally { it / 3 } togetherWith slideOutHorizontally { -it / 3 }
+                } else {
+                    slideInHorizontally { -it / 3 } togetherWith slideOutHorizontally { it / 3 }
+                }
+            },
+            label = "drill-down",
+        ) { _ ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 24.dp),
+            ) {
+                // Current folder info card (when drilled in)
+                if (navStack.isNotEmpty() && !isSearching) {
+                    item {
+                        CurrentFolderCard(
+                            node = navStack.last(),
+                            onOpenDetail = { onOpenObject(navStack.last().id) },
+                        )
+                    }
+                }
 
-        item { Spacer(Modifier.height(24.dp)) }
+                if (isSearching) {
+                    if (searchResults.isEmpty()) {
+                        item { EmptyState(query = query) }
+                    } else {
+                        items(searchResults, key = { it.first.id }) { (node, path) ->
+                            SearchResultRow(
+                                node = node,
+                                path = path,
+                                onTap = { onOpenObject(node.id) },
+                            )
+                        }
+                    }
+                } else if (displayNodes.isEmpty()) {
+                    item { EmptyState(query = query, hasFilter = statusFilter != StatusFilter.ALL) }
+                } else {
+                    items(displayNodes, key = { it.id }) { node ->
+                        NodeRow(
+                            node = node,
+                            onTap = {
+                                if (node.children.isNotEmpty()) {
+                                    navStack.add(node)
+                                } else {
+                                    onOpenObject(node.id)
+                                }
+                            },
+                            onLongTap = { onOpenObject(node.id) },
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Header
+// Header with breadcrumbs
 // ═══════════════════════════════════════════════════════════════
 
 @Composable
 private fun ProjectsHeader(
     totalNodes: Int,
-    activeCount: Int,
-    rootCount: Int,
+    currentCount: Int,
+    navStack: List<ObjectNodeDto>,
+    onNavigateUp: () -> Unit,
+    onNavigateTo: (Int) -> Unit,
+    onNavigateRoot: () -> Unit,
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .background(MaterialTheme.colorScheme.surface),
     ) {
-        Text(
-            "Проекты",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            "Структура объектов workspace",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.height(12.dp))
-
+        // Title row
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = if (navStack.isNotEmpty()) 4.dp else 16.dp, end = 16.dp, top = 12.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            MetricChip(Modifier.weight(1f), totalNodes.toString(), "Всего", BlueDark, BlueText)
-            MetricChip(Modifier.weight(1f), activeCount.toString(), "Активных", EmeraldDark, EmeraldText)
-            MetricChip(Modifier.weight(1f), rootCount.toString(), "Корневых", AmberDark, AmberText)
-        }
-    }
+            if (navStack.isNotEmpty()) {
+                IconButton(onClick = onNavigateUp, modifier = Modifier.size(40.dp)) {
+                    Icon(
+                        Icons.AutoMirrored.Rounded.ArrowBack, "Назад",
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+            }
 
-    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-}
-
-@Composable
-private fun MetricChip(
-    modifier: Modifier = Modifier,
-    value: String,
-    label: String,
-    bg: Color,
-    accent: Color,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(10.dp),
-        color = bg,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
             Text(
-                value,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                color = accent,
+                "Проекты",
+                style = MaterialTheme.typography.headlineMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
             )
+
+            // Counters
             Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                color = accent.copy(alpha = 0.7f),
+                "$currentCount из $totalNodes",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+
+        // Breadcrumbs
+        if (navStack.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // Root
+                Text(
+                    "Все",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(onClick = onNavigateRoot)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+
+                navStack.forEachIndexed { index, node ->
+                    Icon(
+                        Icons.AutoMirrored.Rounded.KeyboardArrowRight, null,
+                        tint = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    val isLast = index == navStack.lastIndex
+                    Text(
+                        node.name,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (isLast) MaterialTheme.colorScheme.onSurface
+                        else MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = if (!isLast) Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .clickable { onNavigateTo(index) }
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                        else Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+            }
+        }
+
+        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -199,103 +320,164 @@ private fun MetricChip(
 private fun SearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
-    visibleNodes: Int,
-    totalNodes: Int,
 ) {
-    Column(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            placeholder = { Text("Найти объект, тип или ответственного") },
-            leadingIcon = {
-                Icon(
-                    Icons.Rounded.Search, null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp),
-                )
-            },
-            trailingIcon = if (query.isNotBlank()) {
-                {
-                    IconButton(onClick = { onQueryChange("") }) {
-                        Icon(Icons.Rounded.Close, "Очистить", modifier = Modifier.size(18.dp))
-                    }
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        singleLine = true,
+        placeholder = { Text("Поиск по названию, типу, ответственному") },
+        leadingIcon = {
+            Icon(
+                Icons.Rounded.Search, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp),
+            )
+        },
+        trailingIcon = if (query.isNotBlank()) {
+            {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(Icons.Rounded.Close, "Очистить", modifier = Modifier.size(18.dp))
                 }
-            } else null,
-            shape = RoundedCornerShape(12.dp),
-        )
-        if (query.isNotBlank()) {
-            Text(
-                "Найдено $visibleNodes из $totalNodes",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            }
+        } else null,
+        shape = RoundedCornerShape(12.dp),
+    )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Status Filter Chips
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun StatusFilterRow(
+    selected: StatusFilter,
+    onSelect: (StatusFilter) -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(StatusFilter.entries.toList()) { filter ->
+            FilterChip(
+                selected = selected == filter,
+                onClick = { onSelect(filter) },
+                label = { Text(filter.label, style = MaterialTheme.typography.labelLarge) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                ),
             )
         }
     }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Tree
+// Current Folder Card (shown when drilled into a node)
 // ═══════════════════════════════════════════════════════════════
 
-private fun androidx.compose.foundation.lazy.LazyListScope.treeNodes(
-    nodes: List<ObjectNodeDto>,
-    depth: Int,
-    onOpenObject: (String) -> Unit,
-) {
-    items(nodes, key = { it.id }) { node ->
-        TreeRow(node = node, depth = depth, onOpenObject = onOpenObject)
-    }
-    nodes.forEach { node ->
-        if (node.children.isNotEmpty()) {
-            treeNodes(node.children, depth + 1, onOpenObject)
-        }
-    }
-}
-
 @Composable
-private fun TreeRow(
+private fun CurrentFolderCard(
     node: ObjectNodeDto,
-    depth: Int,
-    onOpenObject: (String) -> Unit,
+    onOpenDetail: () -> Unit,
 ) {
-    val indentDp = (depth * 24 + 12).dp
-    val kindIcon = when (node.typeKind?.lowercase()) {
-        "directory" -> Icons.Rounded.Folder
-        "project" -> Icons.Rounded.Adjust
-        "task" -> Icons.Rounded.CheckBox
-        "document" -> Icons.Rounded.Description
-        else -> Icons.Rounded.FolderOpen
-    }
-
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(),
-                onClick = { onOpenObject(node.id) },
+                onClick = onOpenDetail,
+            ),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val iconColor = parseTypeColor(node.typeColor)
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = iconColor.copy(alpha = 0.15f),
+                modifier = Modifier.size(36.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(kindIcon(node.typeKind), null, tint = iconColor, modifier = Modifier.size(18.dp))
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    node.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                val meta = listOfNotNull(
+                    node.typeName,
+                    node.status,
+                    "${node.children.size} объектов внутри",
+                ).joinToString(" \u00B7 ")
+                Text(
+                    meta,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            if (node.progress > 0) {
+                ProgressPill(node.progress)
+            }
+        }
+    }
+    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Node Row (single level item)
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun NodeRow(
+    node: ObjectNodeDto,
+    onTap: () -> Unit,
+    onLongTap: () -> Unit,
+) {
+    val hasChildren = node.children.isNotEmpty()
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onTap,
+                onLongClick = onLongTap,
             )
-            .padding(start = indentDp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Type icon with tinted background
+        // Type icon
         val iconColor = parseTypeColor(node.typeColor)
         Surface(
             shape = RoundedCornerShape(6.dp),
             color = iconColor.copy(alpha = 0.15f),
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(32.dp),
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(kindIcon, null, tint = iconColor, modifier = Modifier.size(15.dp))
+                Icon(kindIcon(node.typeKind), null, tint = iconColor, modifier = Modifier.size(16.dp))
             }
         }
 
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(12.dp))
 
         // Name + meta
         Column(modifier = Modifier.weight(1f)) {
@@ -307,69 +489,174 @@ private fun TreeRow(
                 overflow = TextOverflow.Ellipsis,
                 color = MaterialTheme.colorScheme.onSurface,
             )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                node.typeName?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                node.assigneeName?.let { name ->
+                    Text("\u00B7", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                    AssigneeAvatar(name)
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                }
+            }
+        }
 
-            // Meta row: type · assignee
-            val metaParts = mutableListOf<String>()
-            node.typeName?.let { metaParts.add(it) }
-            node.assigneeName?.let { metaParts.add(it) }
-            if (metaParts.isNotEmpty()) {
+        // Right side
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (node.progress > 0) {
+                ProgressPill(node.progress)
+            }
+
+            node.status?.takeIf { it.isNotBlank() }?.let { status ->
+                StatusBadge(status)
+            }
+
+            if (hasChildren) {
+                // Children count + chevron
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        Text(
+                            node.children.size.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Icon(
+                            Icons.AutoMirrored.Rounded.KeyboardArrowRight, null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(14.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 60.dp),
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+    )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Search Result Row (flat, with path)
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun SearchResultRow(
+    node: ObjectNodeDto,
+    path: String,
+    onTap: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onTap,
+            )
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val iconColor = parseTypeColor(node.typeColor)
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = iconColor.copy(alpha = 0.15f),
+            modifier = Modifier.size(28.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(kindIcon(node.typeKind), null, tint = iconColor, modifier = Modifier.size(14.dp))
+            }
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                node.name,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (path.isNotBlank()) {
                 Text(
-                    metaParts.joinToString(" \u00B7 "),
+                    path,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.outline,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
         }
 
-        // Right side: progress + status + children count
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Progress bar (if > 0)
-            if (node.progress > 0) {
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    modifier = Modifier.width(36.dp),
-                ) {
-                    LinearProgressIndicator(
-                        progress = { node.progress / 100f },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(999.dp)),
-                        color = EmeraldText,
-                        trackColor = MaterialTheme.colorScheme.outlineVariant,
-                        strokeCap = StrokeCap.Round,
-                    )
-                    Text(
-                        "${node.progress}%",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            // Status badge
-            node.status?.takeIf { it.isNotBlank() }?.let { status ->
-                StatusBadge(status)
-            }
-
-            // Assignee avatar
-            node.assigneeName?.takeIf { it.isNotBlank() }?.let { name ->
-                AssigneeAvatar(name = name)
-            }
+        node.status?.takeIf { it.isNotBlank() }?.let { status ->
+            Spacer(Modifier.width(8.dp))
+            StatusBadge(status)
         }
     }
 
-    // Thin divider
     HorizontalDivider(
-        modifier = Modifier.padding(start = indentDp),
+        modifier = Modifier.padding(start = 56.dp),
         thickness = 1.dp,
         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
     )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Progress Pill
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun ProgressPill(progress: Int) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = EmeraldDark,
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            LinearProgressIndicator(
+                progress = { progress / 100f },
+                modifier = Modifier
+                    .width(24.dp)
+                    .height(4.dp)
+                    .clip(RoundedCornerShape(999.dp)),
+                color = EmeraldText,
+                trackColor = EmeraldDark,
+                strokeCap = StrokeCap.Round,
+            )
+            Text(
+                "$progress%",
+                style = MaterialTheme.typography.labelSmall,
+                color = EmeraldText,
+            )
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -412,12 +699,12 @@ private fun AssigneeAvatar(name: String) {
     Surface(
         shape = CircleShape,
         color = BlueDark,
-        modifier = Modifier.size(22.dp),
+        modifier = Modifier.size(18.dp),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
                 letter,
-                style = MaterialTheme.typography.labelSmall,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize * 0.85f),
                 fontWeight = FontWeight.SemiBold,
                 color = BlueText,
             )
@@ -426,25 +713,11 @@ private fun AssigneeAvatar(name: String) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Parse type color from hex
-// ═══════════════════════════════════════════════════════════════
-
-private fun parseTypeColor(hex: String?): Color {
-    if (hex.isNullOrBlank()) return Color(0xFF8DB0F0) // default blue
-    return try {
-        val clean = hex.trimStart('#')
-        Color(("FF$clean").toLong(16))
-    } catch (_: Exception) {
-        Color(0xFF8DB0F0)
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════
 // Empty State
 // ═══════════════════════════════════════════════════════════════
 
 @Composable
-private fun EmptyState(query: String) {
+private fun EmptyState(query: String, hasFilter: Boolean = false) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -458,7 +731,11 @@ private fun EmptyState(query: String) {
             modifier = Modifier.size(32.dp),
         )
         Text(
-            if (query.isBlank()) "Дерево объектов пока пустое" else "Ничего не найдено",
+            when {
+                query.isNotBlank() -> "Ничего не найдено"
+                hasFilter -> "Нет объектов с таким статусом"
+                else -> "Здесь пока пусто"
+            },
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -473,22 +750,46 @@ private fun EmptyState(query: String) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Utility functions
+// Utilities
 // ═══════════════════════════════════════════════════════════════
 
-private fun filterTree(nodes: List<ObjectNodeDto>, query: String): List<ObjectNodeDto> {
+private fun kindIcon(typeKind: String?): ImageVector = when (typeKind?.lowercase()) {
+    "directory" -> Icons.Rounded.Folder
+    "project" -> Icons.Rounded.Adjust
+    "task" -> Icons.Rounded.CheckBox
+    "document" -> Icons.Rounded.Description
+    else -> Icons.Rounded.FolderOpen
+}
+
+private fun parseTypeColor(hex: String?): Color {
+    if (hex.isNullOrBlank()) return Color(0xFF8DB0F0)
+    return try {
+        val clean = hex.trimStart('#')
+        Color(("FF$clean").toLong(16))
+    } catch (_: Exception) {
+        Color(0xFF8DB0F0)
+    }
+}
+
+/** Flatten tree for search — returns (node, breadcrumb path) pairs */
+private fun flatSearch(
+    nodes: List<ObjectNodeDto>,
+    query: String,
+    parentPath: String = "",
+): List<Pair<ObjectNodeDto, String>> {
     val key = query.lowercase()
-    return nodes.mapNotNull { node ->
-        val filteredChildren = filterTree(node.children, query)
-        val selfMatches = node.name.lowercase().contains(key) ||
+    val results = mutableListOf<Pair<ObjectNodeDto, String>>()
+    for (node in nodes) {
+        val currentPath = if (parentPath.isEmpty()) node.name else "$parentPath / ${node.name}"
+        val matches = node.name.lowercase().contains(key) ||
             (node.typeName?.lowercase()?.contains(key) == true) ||
             (node.assigneeName?.lowercase()?.contains(key) == true)
-        if (selfMatches || filteredChildren.isNotEmpty()) {
-            node.copy(children = filteredChildren)
-        } else {
-            null
+        if (matches) {
+            results.add(node to parentPath)
         }
+        results.addAll(flatSearch(node.children, query, currentPath))
     }
+    return results
 }
 
 private fun countNodes(nodes: List<ObjectNodeDto>): Int =
