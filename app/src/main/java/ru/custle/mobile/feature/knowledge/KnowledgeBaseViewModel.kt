@@ -39,14 +39,15 @@ class KnowledgeBaseViewModel(
         launchCatching {
             _state.value = _state.value.copy(isLoading = true, errorMessage = null)
             val (notes, articles) = coroutineScope {
-                val notesDeferred = async { container.knowledgeRepository.notes() }
-                val articlesDeferred = async { container.knowledgeRepository.articles() }
+                val notesDeferred = async { runCatching { container.knowledgeRepository.notes() }.getOrDefault(emptyList()) }
+                val articlesDeferred = async { runCatching { container.knowledgeRepository.articles() }.getOrDefault(emptyList()) }
                 notesDeferred.await() to articlesDeferred.await()
             }
             _state.value = _state.value.copy(
                 isLoading = false,
                 notes = notes,
                 articles = articles,
+                errorMessage = if (notes.isEmpty() && articles.isEmpty()) "Модуль знаний недоступен или пуст" else null,
             )
         }
     }
