@@ -1,0 +1,11 @@
+.gradle/
+.gradle-user/
+build/
+app/build/
+local.properties
+deploy.s3.properties
+android-sdk/
+android-studio-page.html
+commandlinetools-linux-14742923_latest.zip
+gradle-8.10.2/
+gradle-8.10.2-bin.zip
