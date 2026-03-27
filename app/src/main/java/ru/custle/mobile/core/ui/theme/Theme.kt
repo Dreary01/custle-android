@@ -6,7 +6,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
-private val DarkColors = darkColorScheme(
+val DarkColors = darkColorScheme(
     primary = Primary400,
     onPrimary = Primary950,
     primaryContainer = Primary800,
@@ -40,8 +40,7 @@ private val DarkColors = darkColorScheme(
     inversePrimary = Primary600,
 )
 
-// Light kept for reference but not used
-private val LightColors = lightColorScheme(
+val LightColors = lightColorScheme(
     primary = Primary600,
     onPrimary = Color.White,
     primaryContainer = Primary100,
@@ -69,11 +68,11 @@ private val LightColors = lightColorScheme(
 
 @Composable
 fun CustleTheme(
+    darkTheme: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    // Force dark theme
     MaterialTheme(
-        colorScheme = DarkColors,
+        colorScheme = if (darkTheme) DarkColors else LightColors,
         typography = CustleTypography,
         content = content,
     )

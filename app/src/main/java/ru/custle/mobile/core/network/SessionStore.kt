@@ -1,6 +1,7 @@
 package ru.custle.mobile.core.network
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -19,6 +20,7 @@ class SessionStore(
     private object Keys {
         val token = stringPreferencesKey("token")
         val workspaceId = stringPreferencesKey("workspace_id")
+        val darkTheme = booleanPreferencesKey("dark_theme")
     }
 
     val sessionFlow: Flow<Session?> = context.dataStore.data
@@ -33,6 +35,13 @@ class SessionStore(
             )
         }
 
+    /** true = dark (default), false = light */
+    val darkThemeFlow: Flow<Boolean> = context.dataStore.data
+        .catch { exception ->
+            if (exception is IOException) emit(emptyPreferences()) else throw exception
+        }
+        .map { prefs -> prefs[Keys.darkTheme] ?: true }
+
     suspend fun saveToken(token: String) {
         context.dataStore.edit { prefs ->
             prefs[Keys.token] = token
@@ -42,6 +51,12 @@ class SessionStore(
     suspend fun saveWorkspace(id: String) {
         context.dataStore.edit { prefs ->
             prefs[Keys.workspaceId] = id
+        }
+    }
+
+    suspend fun saveDarkTheme(dark: Boolean) {
+        context.dataStore.edit { prefs ->
+            prefs[Keys.darkTheme] = dark
         }
     }
 

@@ -1,57 +1,74 @@
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+)
+
 package ru.custle.mobile.feature.projects
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.TrendingUp
-import androidx.compose.material.icons.outlined.AccountTree
-import androidx.compose.material.icons.outlined.FolderCopy
-import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Source
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.CheckBox
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Adjust
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.custle.mobile.core.model.ObjectNodeDto
-import ru.custle.mobile.core.ui.components.EmptyStateCard
-import ru.custle.mobile.core.ui.theme.Brick300
-import ru.custle.mobile.core.ui.theme.Green900
-import ru.custle.mobile.core.ui.theme.Sand050
-import ru.custle.mobile.core.ui.theme.Sand100
-import ru.custle.mobile.core.ui.theme.Sand200
-import ru.custle.mobile.core.ui.theme.Sand700
+
+// ── Dark-friendly accent tones (matching dashboard) ──
+private val BlueDark = Color(0xFF1A2A4D)
+private val BlueText = Color(0xFF8DB0F0)
+private val EmeraldDark = Color(0xFF1A3D2A)
+private val EmeraldText = Color(0xFF6FD4A0)
+private val AmberDark = Color(0xFF3D2E0A)
+private val AmberText = Color(0xFFE8C060)
+private val RedDark = Color(0xFF3D1515)
+private val RedText = Color(0xFFE88080)
 
 @Composable
 fun ProjectsScreen(
@@ -63,172 +80,157 @@ fun ProjectsScreen(
     val totalNodes = countNodes(tree)
     val visibleNodes = countNodes(visibleTree)
     val activeCount = countActiveNodes(tree)
-    val rootCount = tree.size
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .background(MaterialTheme.colorScheme.background),
     ) {
+        // ── Header ──
         item {
-            ProjectsHero(
+            ProjectsHeader(
                 totalNodes = totalNodes,
                 activeCount = activeCount,
-                rootCount = rootCount,
+                rootCount = tree.size,
             )
         }
+
+        // ── Search ──
         item {
-            SearchPanel(
+            SearchBar(
                 query = query,
                 onQueryChange = { query = it },
                 visibleNodes = visibleNodes,
                 totalNodes = totalNodes,
             )
         }
-        if (tree.isNotEmpty()) {
-            item {
-                ProjectsExecutiveStrip(
-                    rootCount = rootCount,
-                    visibleNodes = visibleNodes,
-                    activeCount = activeCount,
-                )
-            }
-        }
-        if (query.isBlank() && tree.isNotEmpty()) {
-            item {
-                FeaturedRootsPanel(
-                    roots = tree.take(3),
-                    onOpenObject = onOpenObject,
-                )
-            }
-        }
-        item {
-            TreePanelHeader(
-                title = if (query.isBlank()) "Структура объектов" else "Результат поиска по структуре",
-                hint = if (query.isBlank()) {
-                    "Основное дерево workspace. Здесь важно быстро считать уровень, статус и ответственного."
-                } else {
-                    "Показываем только ту часть дерева, которая совпала с запросом или содержит совпавшие узлы."
-                },
-            )
-        }
+
+        // ── Tree ──
         if (visibleTree.isEmpty()) {
-            item {
-                EmptyProjectsState(query = query)
-            }
+            item { EmptyState(query = query) }
         } else {
             treeNodes(visibleTree, 0, onOpenObject)
         }
+
+        item { Spacer(Modifier.height(24.dp)) }
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Header
+// ═══════════════════════════════════════════════════════════════
+
 @Composable
-private fun ProjectsHero(
+private fun ProjectsHeader(
     totalNodes: Int,
     activeCount: Int,
     rootCount: Int,
 ) {
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(containerColor = Sand050),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        Text(
+            "Проекты",
+            style = MaterialTheme.typography.headlineMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            "Структура объектов workspace",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = Color.Transparent,
-                border = BorderStroke(1.dp, Sand200.copy(alpha = 0.22f)),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .background(
-                            brush = Brush.verticalGradient(
-                                listOf(
-                                    Green900,
-                                    Green900.copy(alpha = 0.95f),
-                                    Sand700,
-                                ),
-                            ),
-                            shape = RoundedCornerShape(24.dp),
-                        )
-                        .padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = Sand050.copy(alpha = 0.12f),
-                    ) {
-                        Text(
-                            "PROJECT HUB",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Sand100,
-                        )
-                    }
-                    Text(
-                        "Проекты\nи объекты",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Sand050,
-                    )
-                    Text(
-                        "Главный вход в живую структуру workspace: дерево, владельцы, статусы и переход к карточкам объектов.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Sand200,
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HeroMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = totalNodes.toString(),
-                    label = "Всего узлов",
-                    accent = Sand200,
-                )
-                HeroMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = activeCount.toString(),
-                    label = "Активных",
-                    accent = Green900.copy(alpha = 0.12f),
-                )
-                HeroMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = rootCount.toString(),
-                    label = "Корней",
-                    accent = Brick300.copy(alpha = 0.45f),
-                )
-            }
+            MetricChip(Modifier.weight(1f), totalNodes.toString(), "Всего", BlueDark, BlueText)
+            MetricChip(Modifier.weight(1f), activeCount.toString(), "Активных", EmeraldDark, EmeraldText)
+            MetricChip(Modifier.weight(1f), rootCount.toString(), "Корневых", AmberDark, AmberText)
         }
     }
+
+    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
-private fun HeroMetricCard(
+private fun MetricChip(
+    modifier: Modifier = Modifier,
     value: String,
     label: String,
+    bg: Color,
     accent: Color,
-    modifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        color = accent,
+        shape = RoundedCornerShape(10.dp),
+        color = bg,
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = accent,
             )
             Text(
                 label,
+                style = MaterialTheme.typography.labelSmall,
+                color = accent.copy(alpha = 0.7f),
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Search
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun SearchBar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    visibleNodes: Int,
+    totalNodes: Int,
+) {
+    Column(
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            placeholder = { Text("Найти объект, тип или ответственного") },
+            leadingIcon = {
+                Icon(
+                    Icons.Rounded.Search, null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp),
+                )
+            },
+            trailingIcon = if (query.isNotBlank()) {
+                {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(Icons.Rounded.Close, "Очистить", modifier = Modifier.size(18.dp))
+                    }
+                }
+            } else null,
+            shape = RoundedCornerShape(12.dp),
+        )
+        if (query.isNotBlank()) {
+            Text(
+                "Найдено $visibleNodes из $totalNodes",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -236,187 +238,243 @@ private fun HeroMetricCard(
     }
 }
 
-@Composable
-private fun SearchPanel(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    visibleNodes: Int,
-    totalNodes: Int,
+// ═══════════════════════════════════════════════════════════════
+// Tree
+// ═══════════════════════════════════════════════════════════════
+
+private fun androidx.compose.foundation.lazy.LazyListScope.treeNodes(
+    nodes: List<ObjectNodeDto>,
+    depth: Int,
+    onOpenObject: (String) -> Unit,
 ) {
-    ProjectsPanel(
-        marker = "SEARCH",
-        title = "Поиск по структуре",
-        hint = "Работает по названию объекта, типу и ответственному.",
-        accent = Green900.copy(alpha = 0.08f),
-    ) {
-        OutlinedTextField(
-            value = query,
-            onValueChange = onQueryChange,
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-            label = { Text("Найти объект, тип или ответственного") },
-        )
-        Text(
-            if (query.isBlank()) "Показано $totalNodes из $totalNodes узлов"
-            else "Показано $visibleNodes из $totalNodes узлов",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    items(nodes, key = { it.id }) { node ->
+        TreeRow(node = node, depth = depth, onOpenObject = onOpenObject)
+    }
+    nodes.forEach { node ->
+        if (node.children.isNotEmpty()) {
+            treeNodes(node.children, depth + 1, onOpenObject)
+        }
     }
 }
 
 @Composable
-private fun ProjectsExecutiveStrip(
-    rootCount: Int,
-    visibleNodes: Int,
-    activeCount: Int,
+private fun TreeRow(
+    node: ObjectNodeDto,
+    depth: Int,
+    onOpenObject: (String) -> Unit,
 ) {
+    val indentDp = (depth * 24 + 12).dp
+    val kindIcon = when (node.typeKind?.lowercase()) {
+        "directory" -> Icons.Rounded.Folder
+        "project" -> Icons.Rounded.Adjust
+        "task" -> Icons.Rounded.CheckBox
+        "document" -> Icons.Rounded.Description
+        else -> Icons.Rounded.FolderOpen
+    }
+
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = { onOpenObject(node.id) },
+            )
+            .padding(start = indentDp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        ExecutivePill(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Outlined.AccountTree,
-            label = "Контур",
-            value = "$rootCount корн.",
-        )
-        ExecutivePill(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Outlined.FolderCopy,
-            label = "В выдаче",
-            value = "$visibleNodes узл.",
-        )
-        ExecutivePill(
-            modifier = Modifier.weight(1f),
-            icon = Icons.AutoMirrored.Outlined.TrendingUp,
-            label = "Активность",
-            value = "$activeCount акт.",
-        )
-    }
-}
+        // Type icon with tinted background
+        val iconColor = parseTypeColor(node.typeColor)
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = iconColor.copy(alpha = 0.15f),
+            modifier = Modifier.size(28.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(kindIcon, null, tint = iconColor, modifier = Modifier.size(15.dp))
+            }
+        }
 
-@Composable
-private fun ExecutivePill(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(999.dp),
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-    ) {
-        Row(
-            modifier = Modifier
-                .background(
-                    brush = Brush.horizontalGradient(listOf(Sand100, Sand050)),
-                    shape = RoundedCornerShape(999.dp),
+        Spacer(Modifier.width(10.dp))
+
+        // Name + meta
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                node.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+
+            // Meta row: type · assignee
+            val metaParts = mutableListOf<String>()
+            node.typeName?.let { metaParts.add(it) }
+            node.assigneeName?.let { metaParts.add(it) }
+            if (metaParts.isNotEmpty()) {
+                Text(
+                    metaParts.joinToString(" \u00B7 "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+            }
+        }
+
+        // Right side: progress + status + children count
+        Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, tint = Green900)
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun FeaturedRootsPanel(
-    roots: List<ObjectNodeDto>,
-    onOpenObject: (String) -> Unit,
-) {
-    ProjectsPanel(
-        marker = "PRIMARY PORTFOLIO",
-        title = "Ключевые корневые объекты",
-        hint = "Самые верхние узлы структуры, откуда обычно начинается переход в рабочий поток.",
-        accent = Green900.copy(alpha = 0.10f),
-    ) {
-        roots.forEach { root ->
-            FeaturedRootCard(root = root, onOpenObject = onOpenObject)
-        }
-    }
-}
-
-@Composable
-private fun FeaturedRootCard(
-    root: ObjectNodeDto,
-    onOpenObject: (String) -> Unit,
-) {
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onOpenObject(root.id) },
-        colors = CardDefaults.elevatedCardColors(containerColor = Sand050),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = Green900,
-            ) {
-                Box(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 16.dp),
-                    contentAlignment = Alignment.Center,
+            // Progress bar (if > 0)
+            if (node.progress > 0) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    modifier = Modifier.width(36.dp),
                 ) {
-                    Icon(Icons.Outlined.Source, contentDescription = null, tint = Sand050)
-                }
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text("ROOT OBJECT", style = MaterialTheme.typography.labelLarge, color = Green900)
-                Text(root.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                val meta = listOfNotNull(root.typeName, root.status, root.assigneeName).joinToString(" • ")
-                if (meta.isNotBlank()) {
+                    LinearProgressIndicator(
+                        progress = { node.progress / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(999.dp)),
+                        color = EmeraldText,
+                        trackColor = MaterialTheme.colorScheme.outlineVariant,
+                        strokeCap = StrokeCap.Round,
+                    )
                     Text(
-                        meta,
-                        style = MaterialTheme.typography.bodySmall,
+                        "${node.progress}%",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
-            Text("Открыть", style = MaterialTheme.typography.labelLarge, color = Green900)
+
+            // Status badge
+            node.status?.takeIf { it.isNotBlank() }?.let { status ->
+                StatusBadge(status)
+            }
+
+            // Assignee avatar
+            node.assigneeName?.takeIf { it.isNotBlank() }?.let { name ->
+                AssigneeAvatar(name = name)
+            }
+        }
+    }
+
+    // Thin divider
+    HorizontalDivider(
+        modifier = Modifier.padding(start = indentDp),
+        thickness = 1.dp,
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+    )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Status Badge
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun StatusBadge(status: String) {
+    val (bg, text) = when (status.lowercase()) {
+        "in_progress", "в работе" -> BlueDark to BlueText
+        "completed", "завершён", "завершен" -> EmeraldDark to EmeraldText
+        "on_hold", "на паузе", "приостановлен" -> AmberDark to AmberText
+        "cancelled", "отменён", "отменен" -> RedDark to RedText
+        "not_started", "не начат" ->
+            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+        else ->
+            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Surface(
+        shape = RoundedCornerShape(999.dp),
+        color = bg,
+    ) {
+        Text(
+            status,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = text,
+        )
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Assignee Avatar
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun AssigneeAvatar(name: String) {
+    val letter = name.firstOrNull()?.uppercase() ?: "?"
+    Surface(
+        shape = CircleShape,
+        color = BlueDark,
+        modifier = Modifier.size(22.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                letter,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = BlueText,
+            )
         }
     }
 }
 
-@Composable
-private fun TreePanelHeader(
-    title: String,
-    hint: String,
-) {
-    ProjectsPanel(
-        marker = "TREE VIEW",
-        title = title,
-        hint = hint,
-        accent = Green900.copy(alpha = 0.06f),
-    ) {}
+// ═══════════════════════════════════════════════════════════════
+// Parse type color from hex
+// ═══════════════════════════════════════════════════════════════
+
+private fun parseTypeColor(hex: String?): Color {
+    if (hex.isNullOrBlank()) return Color(0xFF8DB0F0) // default blue
+    return try {
+        val clean = hex.trimStart('#')
+        Color(("FF$clean").toLong(16))
+    } catch (_: Exception) {
+        Color(0xFF8DB0F0)
+    }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Empty State
+// ═══════════════════════════════════════════════════════════════
+
 @Composable
-private fun EmptyProjectsState(
-    query: String,
-) {
-    EmptyStateCard(
-        title = "Ничего не найдено",
-        message = if (query.isBlank()) "Дерево объектов пока пустое."
-        else "Попробуй изменить запрос. Поиск работает по названию, типу и ответственному.",
-    )
+private fun EmptyState(query: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Icon(
+            Icons.Rounded.FolderOpen, null,
+            tint = MaterialTheme.colorScheme.outline,
+            modifier = Modifier.size(32.dp),
+        )
+        Text(
+            if (query.isBlank()) "Дерево объектов пока пустое" else "Ничего не найдено",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (query.isNotBlank()) {
+            Text(
+                "Попробуйте изменить запрос",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+            )
+        }
+    }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// Utility functions
+// ═══════════════════════════════════════════════════════════════
 
 private fun filterTree(nodes: List<ObjectNodeDto>, query: String): List<ObjectNodeDto> {
     val key = query.lowercase()
@@ -441,192 +499,3 @@ private fun countActiveNodes(nodes: List<ObjectNodeDto>): Int =
         val isActive = node.status?.isNotBlank() == true || node.progress > 0 || node.children.isNotEmpty()
         (if (isActive) 1 else 0) + countActiveNodes(node.children)
     }
-
-private fun androidx.compose.foundation.lazy.LazyListScope.treeNodes(
-    nodes: List<ObjectNodeDto>,
-    depth: Int,
-    onOpenObject: (String) -> Unit,
-) {
-    items(nodes, key = { it.id }) { node ->
-        ProjectRow(node = node, depth = depth, onOpenObject = onOpenObject)
-    }
-    nodes.forEach { node ->
-        treeNodes(node.children, depth + 1, onOpenObject)
-    }
-}
-
-@Composable
-private fun ProjectRow(
-    node: ObjectNodeDto,
-    depth: Int,
-    onOpenObject: (String) -> Unit,
-) {
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onOpenObject(node.id) },
-        colors = CardDefaults.elevatedCardColors(containerColor = Sand050),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 12.dp, top = 14.dp, end = 16.dp, bottom = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            HierarchyRail(depth = depth)
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = Green900.copy(alpha = 0.08f),
-                ) {
-                    Text(
-                        text = "LEVEL ${depth + 1}",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Green900,
-                    )
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Text(
-                            node.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        val meta = listOfNotNull(node.typeName, node.status, node.assigneeName).joinToString(" • ")
-                        if (meta.isNotBlank()) {
-                            Text(
-                                meta,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                    if (node.children.isNotEmpty()) {
-                        Surface(
-                            shape = RoundedCornerShape(999.dp),
-                            color = Sand200,
-                        ) {
-                            Text(
-                                text = "${node.children.size} влож.",
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = Green900,
-                            )
-                        }
-                    }
-                }
-                val dates = listOfNotNull(node.planStartDate, node.planEndDate).joinToString(" -> ")
-                if (dates.isNotBlank()) {
-                    Text(
-                        dates,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Sand700,
-                    )
-                }
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = Sand100,
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Outlined.Person, contentDescription = null, tint = Green900, modifier = Modifier.size(14.dp))
-                        Text("Открыть карточку", style = MaterialTheme.typography.labelLarge, color = Green900)
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HierarchyRail(depth: Int) {
-    Row(
-        modifier = Modifier.padding(top = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        repeat(depth.coerceAtMost(4)) {
-            Box(
-                modifier = Modifier
-                    .size(width = 6.dp, height = 24.dp)
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(Sand200),
-            )
-        }
-        Box(
-            modifier = Modifier
-                .size(12.dp)
-                .clip(CircleShape)
-                .background(Green900),
-        )
-    }
-}
-
-@Composable
-private fun ProjectsPanel(
-    marker: String,
-    title: String,
-    hint: String,
-    accent: Color,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        color = Sand050,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-    ) {
-        Column(
-            modifier = Modifier
-                .background(
-                    brush = Brush.verticalGradient(
-                        listOf(
-                            accent.copy(alpha = 0.95f),
-                            Sand050,
-                        ),
-                    ),
-                    shape = RoundedCornerShape(28.dp),
-                )
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = Green900.copy(alpha = 0.10f),
-                ) {
-                    Text(
-                        marker,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Green900,
-                    )
-                }
-                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Text(
-                    hint,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            content()
-        }
-    }
-}

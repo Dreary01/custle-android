@@ -1,6 +1,7 @@
 package ru.custle.mobile
 
 import android.os.Bundle
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -20,7 +21,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             CompositionLocalProvider(LocalAppContainer provides app.container) {
-                CustleTheme {
+                val isDark by app.container.sessionStore.darkThemeFlow.collectAsState(initial = true)
+                CustleTheme(darkTheme = isDark) {
                     CustleApp(
                         pendingDeepLink = pendingDeepLink,
                         onDeepLinkConsumed = { pendingDeepLink = null },
