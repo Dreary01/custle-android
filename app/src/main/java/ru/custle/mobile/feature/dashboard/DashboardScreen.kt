@@ -4,6 +4,7 @@
 
 package ru.custle.mobile.feature.dashboard
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -21,13 +22,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.TrendingUp
-import androidx.compose.material.icons.rounded.AccessTime
 import androidx.compose.material.icons.rounded.AutoStories
 import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -35,7 +34,6 @@ import androidx.compose.material.icons.rounded.CheckCircleOutline
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.Inbox
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.Newspaper
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
@@ -63,31 +61,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.custle.mobile.core.model.DashboardItemDto
 import ru.custle.mobile.core.ui.components.ErrorBanner
-import ru.custle.mobile.core.ui.theme.Amber050
 import ru.custle.mobile.core.ui.theme.Amber600
-import ru.custle.mobile.core.ui.theme.Amber100
-import ru.custle.mobile.core.ui.theme.DarkNav
-import ru.custle.mobile.core.ui.theme.Emerald050
-import ru.custle.mobile.core.ui.theme.Emerald100
 import ru.custle.mobile.core.ui.theme.Emerald600
-import ru.custle.mobile.core.ui.theme.Gray050
-import ru.custle.mobile.core.ui.theme.Gray100
-import ru.custle.mobile.core.ui.theme.Gray200
-import ru.custle.mobile.core.ui.theme.Gray300
-import ru.custle.mobile.core.ui.theme.Gray400
-import ru.custle.mobile.core.ui.theme.Gray500
-import ru.custle.mobile.core.ui.theme.Gray600
-import ru.custle.mobile.core.ui.theme.Gray800
-import ru.custle.mobile.core.ui.theme.Primary050
-import ru.custle.mobile.core.ui.theme.Primary100
-import ru.custle.mobile.core.ui.theme.Primary300
+import ru.custle.mobile.core.ui.theme.Primary400
 import ru.custle.mobile.core.ui.theme.Primary500
-import ru.custle.mobile.core.ui.theme.Primary600
-import ru.custle.mobile.core.ui.theme.Red050
 import ru.custle.mobile.core.ui.theme.Red600
-import ru.custle.mobile.core.ui.theme.Rose050
 import ru.custle.mobile.core.ui.theme.Rose600
-import ru.custle.mobile.core.ui.theme.Violet050
 import ru.custle.mobile.core.ui.theme.Violet600
 import ru.custle.mobile.navigation.CustleUiState
 import ru.custle.mobile.navigation.MainSection
@@ -95,6 +74,20 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+
+// ── Dark-friendly accent tones (muted for dark backgrounds) ──
+private val VioletDark = Color(0xFF3D2A6E)
+private val VioletText = Color(0xFFB4A0E8)
+private val EmeraldDark = Color(0xFF1A3D2A)
+private val EmeraldText = Color(0xFF6FD4A0)
+private val RoseDark = Color(0xFF3D1A2A)
+private val RoseText = Color(0xFFE88DA0)
+private val BlueDark = Color(0xFF1A2A4D)
+private val BlueText = Color(0xFF8DB0F0)
+private val AmberDark = Color(0xFF3D2E0A)
+private val AmberText = Color(0xFFE8C060)
+private val RedDark = Color(0xFF3D1515)
+private val RedText = Color(0xFFE88080)
 
 @Composable
 fun DashboardScreen(
@@ -145,12 +138,9 @@ fun DashboardScreen(
                 }
             }
 
-            // ── Quick navigation row ──
+            // ── Quick navigation ──
             item {
-                QuickNav(
-                    requestCount = requests.size,
-                    onOpenSection = onOpenSection,
-                )
+                QuickNav(requestCount = requests.size, onOpenSection = onOpenSection)
             }
 
             // ── Requests widget ──
@@ -159,9 +149,8 @@ fun DashboardScreen(
                     title = "Запросы",
                     count = requests.size,
                     icon = Icons.Rounded.Inbox,
-                    iconBg = Violet050,
-                    iconTint = Violet600,
-                    emptyText = "Нет активных запросов",
+                    iconBg = VioletDark,
+                    iconTint = VioletText,
                 ) {
                     if (requests.isEmpty()) {
                         WidgetEmptyState("Входящих запросов пока нет")
@@ -171,17 +160,14 @@ fun DashboardScreen(
                             WidgetListItem(
                                 item = item,
                                 icon = Icons.Rounded.Inbox,
-                                iconBg = Violet050,
-                                iconTint = Violet600,
+                                iconBg = VioletDark,
+                                iconTint = VioletText,
                                 onOpenObject = onOpenObject,
                             )
                         }
                         if (requests.size > 5) {
                             WidgetDivider()
-                            WidgetShowMore(
-                                label = "Все запросы (${requests.size})",
-                                onClick = { onOpenSection(MainSection.INBOX) },
-                            )
+                            WidgetShowMore("Все запросы (${requests.size})") { onOpenSection(MainSection.INBOX) }
                         }
                     }
                 }
@@ -193,27 +179,19 @@ fun DashboardScreen(
                     title = "Мои задачи",
                     count = todos.size,
                     icon = Icons.Rounded.CheckCircleOutline,
-                    iconBg = Emerald050,
-                    iconTint = Emerald600,
-                    emptyText = "Нет задач",
+                    iconBg = EmeraldDark,
+                    iconTint = EmeraldText,
                 ) {
                     if (todos.isEmpty()) {
                         WidgetEmptyState("Задач пока нет — создайте первую")
                     } else {
                         todos.take(5).forEachIndexed { index, todo ->
                             if (index > 0) WidgetDivider()
-                            TodoListItem(
-                                title = todo.title,
-                                isDone = todo.isDone,
-                                dueDate = todo.dueDate,
-                            )
+                            TodoListItem(title = todo.title, isDone = todo.isDone, dueDate = todo.dueDate)
                         }
                         if (todos.size > 5) {
                             WidgetDivider()
-                            WidgetShowMore(
-                                label = "Все задачи (${todos.size})",
-                                onClick = { onOpenSection(MainSection.TODOS) },
-                            )
+                            WidgetShowMore("Все задачи (${todos.size})") { onOpenSection(MainSection.TODOS) }
                         }
                     }
                 }
@@ -226,25 +204,22 @@ fun DashboardScreen(
                         title = "Активные направления",
                         count = directions.size,
                         icon = Icons.AutoMirrored.Rounded.TrendingUp,
-                        iconBg = Primary050,
-                        iconTint = Primary600,
+                        iconBg = BlueDark,
+                        iconTint = BlueText,
                     ) {
                         directions.take(5).forEachIndexed { index, item ->
                             if (index > 0) WidgetDivider()
                             WidgetListItem(
                                 item = item,
                                 icon = Icons.Rounded.FolderOpen,
-                                iconBg = Primary050,
-                                iconTint = Primary500,
+                                iconBg = BlueDark,
+                                iconTint = BlueText,
                                 onOpenObject = onOpenObject,
                             )
                         }
                         if (directions.size > 5) {
                             WidgetDivider()
-                            WidgetShowMore(
-                                label = "Все направления (${directions.size})",
-                                onClick = { onOpenSection(MainSection.PROJECTS) },
-                            )
+                            WidgetShowMore("Все направления (${directions.size})") { onOpenSection(MainSection.PROJECTS) }
                         }
                     }
                 }
@@ -256,8 +231,8 @@ fun DashboardScreen(
                     title = "Лента событий",
                     count = events.size,
                     icon = Icons.Rounded.Notifications,
-                    iconBg = Rose050,
-                    iconTint = Rose600,
+                    iconBg = RoseDark,
+                    iconTint = RoseText,
                 ) {
                     if (events.isEmpty()) {
                         WidgetEmptyState("Событий пока нет")
@@ -267,8 +242,8 @@ fun DashboardScreen(
                             WidgetListItem(
                                 item = item,
                                 icon = Icons.Rounded.Notifications,
-                                iconBg = Rose050,
-                                iconTint = Rose600,
+                                iconBg = RoseDark,
+                                iconTint = RoseText,
                                 onOpenObject = onOpenObject,
                             )
                         }
@@ -277,9 +252,7 @@ fun DashboardScreen(
             }
 
             // ── Secondary navigation ──
-            item {
-                SecondaryNav(onOpenSection = onOpenSection)
-            }
+            item { SecondaryNav(onOpenSection = onOpenSection) }
         }
     }
 }
@@ -311,41 +284,44 @@ private fun CompactHeader(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        // Row 1: greeting + profile/refresh
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     "$greeting, $displayName",
                     style = MaterialTheme.typography.titleLarge,
-                    color = Gray800,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
                     todayLabel,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Gray500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(0.dp)) {
+            Row {
                 IconButton(onClick = onRefresh, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Rounded.Refresh, "Обновить", tint = Gray400, modifier = Modifier.size(20.dp))
+                    Icon(
+                        Icons.Rounded.Refresh, "Обновить",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
                 IconButton(onClick = onProfile, modifier = Modifier.size(40.dp)) {
                     Box(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(Primary600),
+                            .background(MaterialTheme.colorScheme.primary),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Icon(Icons.Rounded.Person, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Rounded.Person, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
                     }
                 }
             }
@@ -353,19 +329,19 @@ private fun CompactHeader(
 
         Spacer(Modifier.height(12.dp))
 
-        // Row 2: metric pills
+        // Metric pills
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            MetricPill(Modifier.weight(1f), "Запросы", requestCount, Violet600, Violet050)
-            MetricPill(Modifier.weight(1f), "Задачи", todoCount, Emerald600, Emerald050)
-            MetricPill(Modifier.weight(1f), "События", eventCount, Rose600, Rose050)
-            MetricPill(Modifier.weight(1f), "Поток", directionCount, Primary600, Primary050)
+            MetricPill(Modifier.weight(1f), "Запросы", requestCount, VioletText, VioletDark)
+            MetricPill(Modifier.weight(1f), "Задачи", todoCount, EmeraldText, EmeraldDark)
+            MetricPill(Modifier.weight(1f), "События", eventCount, RoseText, RoseDark)
+            MetricPill(Modifier.weight(1f), "Поток", directionCount, BlueText, BlueDark)
         }
     }
 
-    HorizontalDivider(thickness = 1.dp, color = Gray200.copy(alpha = 0.8f))
+    HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -376,10 +352,13 @@ private fun MetricPill(
     accentColor: Color,
     bgColor: Color,
 ) {
+    val inactive = MaterialTheme.colorScheme.surfaceVariant
+    val inactiveText = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+
     Surface(
         modifier = modifier,
         shape = RoundedCornerShape(10.dp),
-        color = if (count > 0) bgColor else Gray050,
+        color = if (count > 0) bgColor else inactive,
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
@@ -389,12 +368,12 @@ private fun MetricPill(
                 count.toString(),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
-                color = if (count > 0) accentColor else Gray400,
+                color = if (count > 0) accentColor else inactiveText,
             )
             Text(
                 label,
                 style = MaterialTheme.typography.labelSmall,
-                color = if (count > 0) accentColor.copy(alpha = 0.7f) else Gray400,
+                color = if (count > 0) accentColor.copy(alpha = 0.7f) else inactiveText,
             )
         }
     }
@@ -444,11 +423,8 @@ private fun NavChip(
                 onClick = onClick,
             ),
         shape = RoundedCornerShape(10.dp),
-        color = if (highlight) Primary600 else Color.White,
-        border = if (!highlight) {
-            androidx.compose.foundation.BorderStroke(1.dp, Gray200)
-        } else null,
-        shadowElevation = 1.dp,
+        color = if (highlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+        border = if (!highlight) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
@@ -456,22 +432,21 @@ private fun NavChip(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                icon,
-                contentDescription = null,
-                tint = if (highlight) Color.White else Gray600,
+                icon, null,
+                tint = if (highlight) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(16.dp),
             )
             Text(
                 label,
                 style = MaterialTheme.typography.labelLarge,
-                color = if (highlight) Color.White else Gray800,
+                color = if (highlight) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
             )
         }
     }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Widget Card (matches web WidgetCard component)
+// Widget Card
 // ═══════════════════════════════════════════════════════════════
 
 @Composable
@@ -481,16 +456,16 @@ private fun WidgetCard(
     icon: ImageVector,
     iconBg: Color,
     iconTint: Color,
-    emptyText: String = "",
     content: @Composable () -> Unit,
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
         // Header
         Row(
@@ -504,7 +479,6 @@ private fun WidgetCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Icon with colored background
                 Surface(
                     shape = RoundedCornerShape(8.dp),
                     color = iconBg,
@@ -518,10 +492,9 @@ private fun WidgetCard(
                     title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = Gray800,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
-            // Count badge
             if (count > 0) {
                 Surface(
                     shape = RoundedCornerShape(999.dp),
@@ -538,9 +511,8 @@ private fun WidgetCard(
             }
         }
 
-        HorizontalDivider(thickness = 1.dp, color = Gray100)
+        HorizontalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
 
-        // Body
         Column(modifier = Modifier.padding(vertical = 4.dp)) {
             content()
         }
@@ -548,7 +520,7 @@ private fun WidgetCard(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Widget List Item (matches web widget rows)
+// Widget List Item
 // ═══════════════════════════════════════════════════════════════
 
 @Composable
@@ -570,7 +542,6 @@ private fun WidgetListItem(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Small icon
         Surface(
             shape = RoundedCornerShape(6.dp),
             color = iconBg,
@@ -583,14 +554,13 @@ private fun WidgetListItem(
 
         Spacer(Modifier.width(12.dp))
 
-        // Title + meta
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.title ?: item.name ?: item.id,
                 style = MaterialTheme.typography.titleSmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                color = Gray800,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             val metaParts = mutableListOf<String>()
             item.type?.let { metaParts.add(it) }
@@ -599,14 +569,13 @@ private fun WidgetListItem(
                 Text(
                     metaParts.joinToString(" \u00B7 "),
                     style = MaterialTheme.typography.bodySmall,
-                    color = Gray500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
 
         Spacer(Modifier.width(8.dp))
 
-        // Status badge
         item.status?.takeIf { it.isNotBlank() }?.let { status ->
             StatusBadge(status)
         }
@@ -616,12 +585,14 @@ private fun WidgetListItem(
 @Composable
 private fun StatusBadge(status: String) {
     val (bg, text) = when (status.lowercase()) {
-        "in_progress", "в работе" -> Primary050 to Primary600
-        "completed", "завершён", "завершен" -> Emerald050 to Emerald600
-        "on_hold", "на паузе" -> Amber050 to Amber600
-        "cancelled", "отменён", "отменен" -> Red050 to Red600
-        "not_started", "не начат" -> Gray100 to Gray500
-        else -> Gray100 to Gray600
+        "in_progress", "в работе" -> BlueDark to BlueText
+        "completed", "завершён", "завершен" -> EmeraldDark to EmeraldText
+        "on_hold", "на паузе" -> AmberDark to AmberText
+        "cancelled", "отменён", "отменен" -> RedDark to RedText
+        "not_started", "не начат" ->
+            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+        else ->
+            MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
     }
     Surface(
         shape = RoundedCornerShape(999.dp),
@@ -656,7 +627,7 @@ private fun TodoListItem(
         Icon(
             if (isDone) Icons.Rounded.CheckCircle else Icons.Rounded.CheckCircleOutline,
             contentDescription = null,
-            tint = if (isDone) Emerald600 else Gray300,
+            tint = if (isDone) EmeraldText else MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(20.dp),
         )
 
@@ -666,7 +637,7 @@ private fun TodoListItem(
             title,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.titleSmall,
-            color = if (isDone) Gray400 else Gray800,
+            color = if (isDone) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -678,15 +649,14 @@ private fun TodoListItem(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    Icons.Rounded.CalendarToday,
-                    null,
-                    tint = Gray400,
+                    Icons.Rounded.CalendarToday, null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(12.dp),
                 )
                 Text(
                     dueDate,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Gray500,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -702,7 +672,7 @@ private fun WidgetDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(horizontal = 16.dp),
         thickness = 1.dp,
-        color = Gray050,
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
     )
 }
 
@@ -716,15 +686,14 @@ private fun WidgetEmptyState(text: String) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Icon(
-            Icons.Rounded.CheckCircle,
-            null,
-            tint = Gray300,
+            Icons.Rounded.CheckCircle, null,
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(24.dp),
         )
         Text(
             text,
             style = MaterialTheme.typography.bodySmall,
-            color = Gray400,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -749,13 +718,12 @@ private fun WidgetShowMore(
         Text(
             label,
             style = MaterialTheme.typography.labelLarge,
-            color = Primary600,
+            color = MaterialTheme.colorScheme.primary,
         )
         Spacer(Modifier.width(4.dp))
         Icon(
-            Icons.AutoMirrored.Rounded.ArrowForward,
-            null,
-            tint = Primary600,
+            Icons.AutoMirrored.Rounded.ArrowForward, null,
+            tint = MaterialTheme.colorScheme.primary,
             modifier = Modifier.size(14.dp),
         )
     }
@@ -774,7 +742,7 @@ private fun SecondaryNav(onOpenSection: (MainSection) -> Unit) {
         Text(
             "ЕЩЁ",
             style = MaterialTheme.typography.labelMedium,
-            color = Gray400,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(vertical = 8.dp),
             letterSpacing = MaterialTheme.typography.labelMedium.letterSpacing * 2,
         )
@@ -802,17 +770,16 @@ private fun SecondaryNavItem(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, tint = Gray500, modifier = Modifier.size(18.dp))
+        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         Text(
             label,
             style = MaterialTheme.typography.titleSmall,
-            color = Gray800,
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )
         Icon(
-            Icons.AutoMirrored.Rounded.ArrowForward,
-            null,
-            tint = Gray300,
+            Icons.AutoMirrored.Rounded.ArrowForward, null,
+            tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(14.dp),
         )
     }
