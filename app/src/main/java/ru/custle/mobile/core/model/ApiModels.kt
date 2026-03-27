@@ -304,6 +304,8 @@ data class ObjectDetailDto(
     val actualStartDate: String? = null,
     @SerialName("actual_end_date")
     val actualEndDate: String? = null,
+    @SerialName("field_values")
+    val fieldValues: JsonElement? = null,
     val plans: List<PlanDto> = emptyList(),
     val children: List<ObjectNodeDto> = emptyList(),
 )
@@ -434,6 +436,15 @@ data class ObjectDetailBundle(
     val participants: List<ParticipantDto> = emptyList(),
     val plans: List<PlanDto> = emptyList(),
     val dependencies: List<DependencyDto> = emptyList(),
+    val widgetPlacements: List<WidgetPlacement> = emptyList(),
+)
+
+data class WidgetPlacement(
+    val widgetId: String,
+    val colSpan: Int = 12,
+    val order: Int = 0,
+    val visible: Boolean = true,
+    val title: String? = null,
 )
 
 @Serializable
