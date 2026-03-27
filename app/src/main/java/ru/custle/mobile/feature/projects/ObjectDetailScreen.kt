@@ -343,35 +343,47 @@ private fun DateItem(label: String, value: String, modifier: Modifier = Modifier
 @Composable
 private fun RequisitesPortlet(title: String, bundle: ObjectDetailBundle) {
     val fieldValues = bundle.detail.fieldValues
+    val reqNames = bundle.requisiteNames
 
     PortletCard(title = title) {
         if (fieldValues == null || fieldValues !is JsonObject || fieldValues.jsonObject.isEmpty()) {
             Text("Нет заполненных полей", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             val obj = fieldValues.jsonObject
-            obj.entries.forEachIndexed { index, (key, value) ->
+            // Filter out internal fields (starting with _)
+            val entries = obj.entries.filter { !it.key.startsWith("_") }
+            entries.forEachIndexed { index, (key, value) ->
                 if (index > 0) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
                 }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        key,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.weight(0.4f),
-                    )
-                    Text(
-                        value.jsonPrimitive.content,
-                        style = MaterialTheme.typography.bodySmall,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier = Modifier.weight(0.6f),
-                    )
+                // Resolve human-readable name from requisites map
+                val displayName = reqNames[key] ?: key
+                val displayValue = try {
+                    value.jsonPrimitive.content
+                } catch (_: Exception) {
+                    value.toString()
+                }
+                if (displayValue.isNotBlank()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            displayName,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(0.4f),
+                        )
+                        Text(
+                            displayValue,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(0.6f),
+                        )
+                    }
                 }
             }
         }

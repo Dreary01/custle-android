@@ -44,8 +44,13 @@ class ProjectRepository(
             }.getOrDefault(emptyList())
         }
 
-        // Parse placements from layout JSON using tier priority
+        // Load requisite names for field_values display
+        val requisites = async {
+            runCatching { api.requisites().data }.getOrDefault(emptyList())
+        }
+
         val placements = resolveWidgetPlacements(layouts.await())
+        val reqNames = requisites.await().associate { it.id to it.name }
 
         ObjectDetailBundle(
             detail = detailResult,
@@ -54,6 +59,7 @@ class ProjectRepository(
             plans = plans.await(),
             dependencies = dependencies.await(),
             widgetPlacements = placements,
+            requisiteNames = reqNames,
         )
     }
 

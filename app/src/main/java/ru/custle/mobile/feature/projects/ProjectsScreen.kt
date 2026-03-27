@@ -6,10 +6,6 @@
 
 package ru.custle.mobile.feature.projects
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -154,59 +150,47 @@ fun ProjectsScreen(
         }
 
         // ── Content ──
-        AnimatedContent(
-            targetState = navStack.size to isSearching,
-            transitionSpec = {
-                if (targetState.first > initialState.first) {
-                    slideInHorizontally { it / 3 } togetherWith slideOutHorizontally { -it / 3 }
-                } else {
-                    slideInHorizontally { -it / 3 } togetherWith slideOutHorizontally { it / 3 }
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 24.dp),
+        ) {
+            // Current folder info card (when drilled in)
+            if (navStack.isNotEmpty() && !isSearching) {
+                item(key = "__folder_card__") {
+                    CurrentFolderCard(
+                        node = navStack.last(),
+                        onOpenDetail = { onOpenObject(navStack.last().id) },
+                    )
                 }
-            },
-            label = "drill-down",
-        ) { _ ->
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 24.dp),
-            ) {
-                // Current folder info card (when drilled in)
-                if (navStack.isNotEmpty() && !isSearching) {
-                    item {
-                        CurrentFolderCard(
-                            node = navStack.last(),
-                            onOpenDetail = { onOpenObject(navStack.last().id) },
-                        )
-                    }
-                }
+            }
 
-                if (isSearching) {
-                    if (searchResults.isEmpty()) {
-                        item { EmptyState(query = query) }
-                    } else {
-                        items(searchResults, key = { it.first.id }) { (node, path) ->
-                            SearchResultRow(
-                                node = node,
-                                path = path,
-                                onTap = { onOpenObject(node.id) },
-                            )
-                        }
-                    }
-                } else if (displayNodes.isEmpty()) {
-                    item { EmptyState(query = query, hasFilter = statusFilter != StatusFilter.ALL) }
+            if (isSearching) {
+                if (searchResults.isEmpty()) {
+                    item(key = "__empty__") { EmptyState(query = query) }
                 } else {
-                    items(displayNodes, key = { it.id }) { node ->
-                        NodeRow(
+                    items(searchResults, key = { it.first.id }) { (node, path) ->
+                        SearchResultRow(
                             node = node,
-                            onTap = {
-                                if (node.children.isNotEmpty()) {
-                                    navStack.add(node)
-                                } else {
-                                    onOpenObject(node.id)
-                                }
-                            },
-                            onLongTap = { onOpenObject(node.id) },
+                            path = path,
+                            onTap = { onOpenObject(node.id) },
                         )
                     }
+                }
+            } else if (displayNodes.isEmpty()) {
+                item(key = "__empty__") { EmptyState(query = query, hasFilter = statusFilter != StatusFilter.ALL) }
+            } else {
+                items(displayNodes, key = { it.id }) { node ->
+                    NodeRow(
+                        node = node,
+                        onTap = {
+                            if (node.children.isNotEmpty()) {
+                                navStack.add(node)
+                            } else {
+                                onOpenObject(node.id)
+                            }
+                        },
+                        onLongTap = { onOpenObject(node.id) },
+                    )
                 }
             }
         }

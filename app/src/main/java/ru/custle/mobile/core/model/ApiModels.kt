@@ -437,6 +437,7 @@ data class ObjectDetailBundle(
     val plans: List<PlanDto> = emptyList(),
     val dependencies: List<DependencyDto> = emptyList(),
     val widgetPlacements: List<WidgetPlacement> = emptyList(),
+    val requisiteNames: Map<String, String> = emptyMap(),
 )
 
 data class WidgetPlacement(

@@ -56,18 +56,18 @@ cat > "$TMP_META" <<EOF
   "versionCode": ${APP_VERSION_CODE},
   "versionName": "${APP_VERSION_NAME}",
   "apkUrl": "${LATEST_URL}",
-  "versionedApkUrl": "${VERSIONED_URL}",
   "publishedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
 
-aws --endpoint-url "$ENDPOINT" s3 cp "$APK_PATH" "s3://${BUCKET}/${OBJECT_KEY}" --only-show-errors --acl public-read
+# Remove old versioned APKs (keep only latest.apk and latest.json)
+aws --endpoint-url "$ENDPOINT" s3 rm "s3://${BUCKET}/android/debug/" --recursive --exclude "latest.apk" --exclude "latest.json" --only-show-errors 2>/dev/null || true
+
 aws --endpoint-url "$ENDPOINT" s3 cp "$APK_PATH" "s3://${BUCKET}/${LATEST_KEY}" --only-show-errors --acl public-read
 aws --endpoint-url "$ENDPOINT" s3 cp "$TMP_META" "s3://${BUCKET}/${LATEST_META_KEY}" --only-show-errors --acl public-read --content-type application/json
 
 rm -f "$TMP_META"
 
 printf 'Uploaded:\n'
-printf '  s3://%s/%s\n' "$BUCKET" "$OBJECT_KEY"
 printf '  s3://%s/%s\n' "$BUCKET" "$LATEST_KEY"
 printf '  s3://%s/%s\n' "$BUCKET" "$LATEST_META_KEY"
