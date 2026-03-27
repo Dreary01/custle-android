@@ -1,62 +1,100 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@file:OptIn(
+    androidx.compose.foundation.layout.ExperimentalLayoutApi::class,
+    androidx.compose.animation.ExperimentalAnimationApi::class,
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+)
 
 package ru.custle.mobile.feature.dashboard
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.automirrored.outlined.TrendingUp
-import androidx.compose.material.icons.outlined.AutoStories
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Newspaper
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Source
-import androidx.compose.material.icons.outlined.TaskAlt
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.automirrored.rounded.TrendingUp
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.Inbox
+import androidx.compose.material.icons.rounded.Newspaper
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import ru.custle.mobile.core.model.DashboardItemDto
-import ru.custle.mobile.core.ui.components.EmptyStateCard
 import ru.custle.mobile.core.ui.components.ErrorBanner
+import ru.custle.mobile.core.ui.theme.Amber100
+import ru.custle.mobile.core.ui.theme.Amber500
+import ru.custle.mobile.core.ui.theme.Brick100
 import ru.custle.mobile.core.ui.theme.Brick300
+import ru.custle.mobile.core.ui.theme.Brick500
 import ru.custle.mobile.core.ui.theme.Brick600
+import ru.custle.mobile.core.ui.theme.Green050
+import ru.custle.mobile.core.ui.theme.Green100
+import ru.custle.mobile.core.ui.theme.Green700
+import ru.custle.mobile.core.ui.theme.Green800
 import ru.custle.mobile.core.ui.theme.Green900
+import ru.custle.mobile.core.ui.theme.Info100
+import ru.custle.mobile.core.ui.theme.Info500
+import ru.custle.mobile.core.ui.theme.Neutral400
 import ru.custle.mobile.core.ui.theme.Sand050
 import ru.custle.mobile.core.ui.theme.Sand100
 import ru.custle.mobile.core.ui.theme.Sand200
-import ru.custle.mobile.core.ui.theme.Sand700
+import ru.custle.mobile.core.ui.theme.Sand300
+import ru.custle.mobile.core.ui.theme.Success100
+import ru.custle.mobile.core.ui.theme.Success500
 import ru.custle.mobile.navigation.CustleUiState
 import ru.custle.mobile.navigation.MainSection
 import java.time.LocalDate
@@ -74,453 +112,339 @@ fun DashboardScreen(
     val displayName = listOfNotNull(state.user?.firstName, state.user?.lastName)
         .filter { it.isNotBlank() }
         .joinToString(" ")
-        .ifBlank { state.user?.email ?: "Пользователь" }
+        .ifBlank { state.user?.email ?: "" }
+    val firstName = state.user?.firstName?.takeIf { it.isNotBlank() } ?: displayName
     val requests = state.dashboard.requests
     val directions = state.dashboard.directions
     val events = state.dashboard.events
     val attentionCount = requests.size + events.size
 
-    LazyColumn(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+    PullToRefreshBox(
+        isRefreshing = state.isBusy,
+        onRefresh = onRefresh,
     ) {
-        item {
-            HomeHero(
-                displayName = displayName,
-                workspacesCount = state.workspaces.size,
-                attentionCount = attentionCount,
-                requestCount = requests.size,
-                directionsCount = directions.size,
-                eventsCount = events.size,
-                onRefresh = onRefresh,
-                onLogout = onLogout,
-                errorMessage = state.errorMessage,
-                isBusy = state.isBusy,
-                onOpenSection = onOpenSection,
-            )
-        }
-        item {
-            PrimaryActionsSection(onOpenSection = onOpenSection)
-        }
-        item { FocusSection(requests = requests.size, directions = directions.size, events = events.size) }
-        item {
-            AttentionSection(
-                items = requests.take(4) + events.take(2),
-                onOpenObject = onOpenObject,
-            )
-        }
-        item {
-            DashboardCollectionSection(
-                title = "Рабочий поток",
-                hint = "Направления, которые показывают движение по живым объектам.",
-                items = directions,
-                emptyTitle = "Направления пока не появились",
-                emptyMessage = "Когда в workspace будет больше движения, здесь появятся основные ветки работы.",
-                onOpenObject = onOpenObject,
-            )
-        }
-        item {
-            SecondaryActionsSection(onOpenSection = onOpenSection)
-        }
-        item {
-            DashboardCollectionSection(
-                title = "Последние сигналы",
-                hint = "События и изменения, к которым можно вернуться позже, не перегружая первый экран.",
-                items = events,
-                emptyTitle = "Событий пока нет",
-                emptyMessage = "Блок оживает, когда в системе появляются новые изменения и сроки.",
-                onOpenObject = onOpenObject,
-            )
-        }
-    }
-}
-
-@Composable
-private fun HomeContextStrip(
-    workspaceCount: Int,
-    requestCount: Int,
-    eventsCount: Int,
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        ContextPill(
-            modifier = Modifier.weight(1f),
-            label = "Среда",
-            value = workspaceCount.toString(),
-        )
-        ContextPill(
-            modifier = Modifier.weight(1f),
-            label = "Запросы",
-            value = requestCount.toString(),
-        )
-        ContextPill(
-            modifier = Modifier.weight(1f),
-            label = "События",
-            value = eventsCount.toString(),
-        )
-    }
-}
-
-@Composable
-private fun ContextPill(
-    label: String,
-    value: String,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(999.dp),
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-    ) {
-        Row(
-            modifier = Modifier
-                .background(
-                    brush = Brush.horizontalGradient(
-                        listOf(
-                            Sand100,
-                            Sand050,
-                        ),
-                    ),
-                    shape = RoundedCornerShape(999.dp),
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 32.dp),
+        ) {
+            // ── Header with greeting ──
+            item {
+                DashboardHeader(
+                    firstName = firstName,
+                    onRefresh = onRefresh,
+                    onProfile = { onOpenSection(MainSection.PROFILE) },
                 )
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            }
+
+            // ── Error ──
+            if (!state.errorMessage.isNullOrBlank()) {
+                item {
+                    Box(modifier = Modifier.padding(horizontal = 20.dp)) {
+                        ErrorBanner(state.errorMessage)
+                    }
+                }
+            }
+
+            // ── Stats row ──
+            item {
+                StatsRow(
+                    requests = requests.size,
+                    directions = directions.size,
+                    events = events.size,
+                )
+            }
+
+            // ── Quick actions grid ──
+            item {
+                QuickActionsRow(
+                    attentionCount = attentionCount,
+                    onOpenSection = onOpenSection,
+                )
+            }
+
+            // ── Attention items ──
+            if (attentionCount > 0) {
+                item {
+                    SectionHeader(
+                        title = "Требует внимания",
+                        count = attentionCount,
+                        accentColor = Brick500,
+                    )
+                }
+                val urgentItems = (requests.take(4) + events.take(3)).take(5)
+                itemsIndexed(urgentItems) { index, item ->
+                    AnimatedVisibility(
+                        visible = true,
+                        enter = fadeIn() + slideInVertically(
+                            initialOffsetY = { it / 3 },
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioLowBouncy,
+                                stiffness = Spring.StiffnessLow,
+                            ),
+                        ),
+                    ) {
+                        AttentionCard(
+                            item = item,
+                            isFirst = index == 0,
+                            onOpenObject = onOpenObject,
+                        )
+                    }
+                }
+            }
+
+            // ── Active flow (directions) ──
+            if (directions.isNotEmpty()) {
+                item {
+                    SectionHeader(title = "Рабочий поток", count = directions.size)
+                }
+                item {
+                    FlowCarousel(items = directions, onOpenObject = onOpenObject)
+                }
+            }
+
+            // ── Recent signals (events) ──
+            if (events.isNotEmpty()) {
+                item {
+                    SectionHeader(title = "Последние события", count = events.size)
+                }
+                items(events.take(5)) { item ->
+                    EventRow(item = item, onOpenObject = onOpenObject)
+                }
+            }
+
+            // ── Empty state ──
+            if (attentionCount == 0 && directions.isEmpty() && events.isEmpty() && !state.isBusy) {
+                item {
+                    EmptyDashboard(onOpenSection = onOpenSection)
+                }
+            }
+
+            // ── Explore section ──
+            item {
+                ExploreSection(onOpenSection = onOpenSection)
+            }
         }
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Header
+// ═══════════════════════════════════════════════════════════════
+
 @Composable
-private fun HomeHero(
-    displayName: String,
-    workspacesCount: Int,
-    attentionCount: Int,
-    requestCount: Int,
-    directionsCount: Int,
-    eventsCount: Int,
+private fun DashboardHeader(
+    firstName: String,
     onRefresh: () -> Unit,
-    onLogout: () -> Unit,
-    errorMessage: String?,
-    isBusy: Boolean,
-    onOpenSection: (MainSection) -> Unit,
+    onProfile: () -> Unit,
 ) {
-    val todayLabel = LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM", Locale("ru")))
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = Sand050,
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            HomeContextStrip(
-                workspaceCount = workspacesCount,
-                requestCount = requestCount,
-                eventsCount = eventsCount,
+    val todayLabel = LocalDate.now()
+        .format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale("ru")))
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("ru")) else it.toString() }
+
+    val greeting = when (LocalDate.now().let {
+        java.time.LocalTime.now().hour
+    }) {
+        in 5..11 -> "Доброе утро"
+        in 12..17 -> "Добрый день"
+        in 18..22 -> "Добрый вечер"
+        else -> "Доброй ночи"
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                brush = Brush.verticalGradient(
+                    colors = listOf(Green900, Green800, Sand050),
+                    startY = 0f,
+                    endY = 500f,
+                ),
             )
-            Surface(
-                shape = RoundedCornerShape(22.dp),
-                color = Color.Transparent,
-                border = BorderStroke(1.dp, Sand200.copy(alpha = 0.22f)),
+            .padding(start = 20.dp, end = 12.dp, top = 16.dp, bottom = 28.dp),
+    ) {
+        Column {
+            // Top bar: date + actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(
-                    modifier = Modifier
-                        .background(
-                            brush = Brush.verticalGradient(
-                                listOf(
-                                    Green900,
-                                    Green900.copy(alpha = 0.94f),
-                                    Sand700,
-                                ),
-                            ),
-                            shape = RoundedCornerShape(22.dp),
+                Text(
+                    todayLabel,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Green100.copy(alpha = 0.7f),
+                )
+                Row {
+                    IconButton(onClick = onRefresh) {
+                        Icon(
+                            Icons.Rounded.Refresh,
+                            contentDescription = "Обновить",
+                            tint = Green100.copy(alpha = 0.7f),
                         )
-                        .padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Surface(
-                            shape = RoundedCornerShape(999.dp),
-                            color = Sand050.copy(alpha = 0.12f),
-                            border = BorderStroke(1.dp, Sand200.copy(alpha = 0.18f)),
+                    }
+                    IconButton(onClick = onProfile) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Green700),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                "EXECUTIVE HOME",
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                                style = MaterialTheme.typography.labelLarge,
-                                color = Sand100,
+                            Icon(
+                                Icons.Rounded.Person,
+                                contentDescription = "Профиль",
+                                tint = Green100,
+                                modifier = Modifier.size(18.dp),
                             )
                         }
-                        Text(
-                            todayLabel.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale("ru")) else it.toString() },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = Sand200,
-                        )
-                    }
-                    Text(
-                        "Доброе рабочее утро,\n$displayName",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Sand050,
-                    )
-                    Text(
-                        if (attentionCount > 0) {
-                            "Есть живые сигналы. Начни с входящих и объектов, а уже потом уходи в остальной контекст рабочего дня."
-                        } else {
-                            "Контур выглядит спокойно. Можно стартовать с проектов, задач или поиска без ощущения срочности."
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = Sand200,
-                    )
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HeroMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = attentionCount.toString(),
-                    label = "Требует внимания",
-                    accent = Brick300.copy(alpha = 0.55f),
-                )
-                HeroMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = directionsCount.toString(),
-                    label = "Активных направлений",
-                    accent = Green900.copy(alpha = 0.12f),
-                )
-                HeroMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = workspacesCount.toString(),
-                    label = "Среда",
-                    accent = Sand200,
-                )
-            }
-            if (!errorMessage.isNullOrBlank()) {
-                ErrorBanner(errorMessage)
-            }
-            if (isBusy) {
-                Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                ) {
-                    Column(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text(
-                            "Обновляем домашний контур и собираем свежие сигналы.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                        )
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     }
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = {
-                        if (attentionCount > 0) onOpenSection(MainSection.INBOX) else onOpenSection(MainSection.PROJECTS)
-                    },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        if (attentionCount > 0) Icons.Outlined.Notifications else Icons.Outlined.Source,
-                        contentDescription = null,
-                    )
-                    Text(if (attentionCount > 0) "Разобрать входящие" else "Открыть проекты")
-                }
-                OutlinedButton(
-                    onClick = {
-                        if (attentionCount > 0) onOpenSection(MainSection.PROJECTS) else onOpenSection(MainSection.TODOS)
-                    },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Icon(
-                        if (attentionCount > 0) Icons.Outlined.Source else Icons.Outlined.CheckCircle,
-                        contentDescription = null,
-                    )
-                    Text(if (attentionCount > 0) "Перейти к объектам" else "Перейти к задачам")
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedButton(onClick = onRefresh, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = null)
-                    Text("Освежить")
-                }
-                OutlinedButton(onClick = onLogout, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null)
-                    Text("Выйти")
-                }
-            }
-        }
-    }
-}
 
-@Composable
-private fun HeroMetricCard(
-    value: String,
-    label: String,
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        color = accent,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+            Spacer(Modifier.height(8.dp))
+
+            // Greeting
             Text(
-                value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
+                "$greeting,",
+                style = MaterialTheme.typography.bodyLarge,
+                color = Sand200,
             )
             Text(
-                label,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center,
+                firstName,
+                style = MaterialTheme.typography.displaySmall,
+                color = Sand050,
             )
         }
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Stats
+// ═══════════════════════════════════════════════════════════════
+
 @Composable
-private fun FocusSection(
+private fun StatsRow(
     requests: Int,
     directions: Int,
     events: Int,
 ) {
-    HomePanel(
-        title = "Фокус дня",
-        hint = "Короткий аналитический срез, который поддерживает главный входной контур, а не спорит с ним.",
-        accent = Green900.copy(alpha = 0.10f),
-        marker = "DAILY FOCUS",
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.padding(top = 20.dp),
     ) {
-        Text(
-            text = if (requests + events > 0) {
-                "День живой: смотри на внимание и запросы, а затем переходи к потоку."
-            } else {
-                "День спокойнее обычного: поток важнее срочных сигналов."
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            FocusStatCard(
-                modifier = Modifier.weight(1f),
-                label = "Внимание",
-                value = requests + events,
-                tone = if (requests + events > 0) "Нужно действие" else "Спокойно",
-                accent = Brick300.copy(alpha = 0.65f),
+        item {
+            StatChip(
+                value = requests.toString(),
+                label = "Запросов",
+                icon = Icons.Rounded.Inbox,
+                containerColor = if (requests > 0) Brick100 else Sand100,
+                accentColor = if (requests > 0) Brick500 else Neutral400,
             )
-            FocusStatCard(
-                modifier = Modifier.weight(1f),
-                label = "Запросы",
-                value = requests,
-                tone = if (requests > 0) "Пора ответить" else "Чисто",
-                accent = Sand200,
+        }
+        item {
+            StatChip(
+                value = directions.toString(),
+                label = "Направлений",
+                icon = Icons.AutoMirrored.Rounded.TrendingUp,
+                containerColor = if (directions > 0) Green050 else Sand100,
+                accentColor = if (directions > 0) Green700 else Neutral400,
             )
-            FocusStatCard(
-                modifier = Modifier.weight(1f),
-                label = "Поток",
-                value = directions,
-                tone = if (directions > 0) "Есть движение" else "Пока тихо",
-                accent = Green900.copy(alpha = 0.18f),
+        }
+        item {
+            StatChip(
+                value = events.toString(),
+                label = "Событий",
+                icon = Icons.Rounded.Notifications,
+                containerColor = if (events > 0) Amber100 else Sand100,
+                accentColor = if (events > 0) Amber500 else Neutral400,
             )
         }
     }
 }
 
 @Composable
-private fun FocusStatCard(
+private fun StatChip(
+    value: String,
     label: String,
-    value: Int,
-    tone: String,
-    accent: Color,
-    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    containerColor: Color,
+    accentColor: Color,
 ) {
     Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
-        color = accent,
+        shape = RoundedCornerShape(16.dp),
+        color = containerColor,
     ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(value.toString(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-            Text(label, style = MaterialTheme.typography.labelLarge)
-            Text(
-                tone,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(20.dp),
             )
+            Column {
+                Text(
+                    value,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = accentColor,
+                )
+                Text(
+                    label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = accentColor.copy(alpha = 0.7f),
+                )
+            }
         }
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Quick Actions
+// ═══════════════════════════════════════════════════════════════
+
 @Composable
-private fun PrimaryActionsSection(
+private fun QuickActionsRow(
+    attentionCount: Int,
     onOpenSection: (MainSection) -> Unit,
 ) {
-    HomePanel(
-        title = "Основные входы",
-        hint = "Сразу под главным контекстом дня: сначала основные траектории, потом вторичный контур.",
-        accent = Green900.copy(alpha = 0.10f),
-        marker = "PRIMARY ROUTES",
+    Column(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp),
     ) {
-        FeaturedActionCard(
-            title = "Проекты",
-            subtitle = "Основной вход в дерево, карточки объектов и рабочий поток по живым сущностям.",
-            meta = "Главный контур",
-            icon = Icons.Outlined.Source,
-            accent = Green900,
-            container = Green900,
-            contentColor = Sand050,
-            onClick = { onOpenSection(MainSection.PROJECTS) },
-        )
-        FeaturedActionCard(
-            title = "Входящие",
-            subtitle = "Быстрый разбор mentions, requests и контекста, который просит реакции сейчас.",
-            meta = "Если день горячий",
-            icon = Icons.Outlined.Notifications,
-            accent = Brick600,
-            container = Brick300.copy(alpha = 0.45f),
-            contentColor = Green900,
-            onClick = { onOpenSection(MainSection.INBOX) },
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            HomeActionCard(
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            QuickActionTile(
                 modifier = Modifier.weight(1f),
-                title = "Задачи",
-                subtitle = "Короткий операционный список",
-                icon = Icons.Outlined.CheckCircle,
-                accent = Sand700,
-                container = Sand100,
-                onClick = { onOpenSection(MainSection.TODOS) },
+                title = "Проекты",
+                icon = Icons.Rounded.FolderOpen,
+                containerColor = Green900,
+                contentColor = Sand050,
+                onClick = { onOpenSection(MainSection.PROJECTS) },
             )
-            HomeActionCard(
+            QuickActionTile(
+                modifier = Modifier.weight(1f),
+                title = if (attentionCount > 0) "Входящие" else "Задачи",
+                icon = if (attentionCount > 0) Icons.Rounded.Inbox else Icons.Rounded.CheckCircle,
+                containerColor = if (attentionCount > 0) Brick600 else Sand100,
+                contentColor = if (attentionCount > 0) Color.White else Green900,
+                badge = if (attentionCount > 0) attentionCount.toString() else null,
+                onClick = {
+                    if (attentionCount > 0) onOpenSection(MainSection.INBOX)
+                    else onOpenSection(MainSection.TODOS)
+                },
+            )
+            QuickActionTile(
                 modifier = Modifier.weight(1f),
                 title = "Поиск",
-                subtitle = "Найти объект, документ или тред",
-                icon = Icons.Outlined.Search,
-                accent = Green900,
-                container = Green900.copy(alpha = 0.08f),
+                icon = Icons.Rounded.Search,
+                containerColor = Sand100,
+                contentColor = Green900,
                 onClick = { onOpenSection(MainSection.SEARCH) },
             )
         }
@@ -528,90 +452,61 @@ private fun PrimaryActionsSection(
 }
 
 @Composable
-private fun HomeActionCard(
+private fun QuickActionTile(
     title: String,
-    subtitle: String,
     icon: ImageVector,
-    accent: Color,
-    container: Color,
+    containerColor: Color,
+    contentColor: Color,
+    badge: String? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ElevatedCard(
-        modifier = modifier.clickable(onClick = onClick),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = container,
-        ),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 3.dp),
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            ),
+        colors = CardDefaults.cardColors(containerColor = containerColor),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Surface(
-                shape = RoundedCornerShape(16.dp),
-                color = accent.copy(alpha = 0.16f),
-            ) {
-                Box(modifier = Modifier.padding(10.dp), contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = accent)
+            Box {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = contentColor,
+                    modifier = Modifier.size(28.dp),
+                )
+                if (badge != null) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(0.dp),
+                        shape = CircleShape,
+                        color = Color.White,
+                    ) {
+                        Text(
+                            badge,
+                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = Brick600,
+                        )
+                    }
                 }
             }
-            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(
-                subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "Открыть",
-                style = MaterialTheme.typography.labelLarge,
-                color = accent,
-            )
-        }
-    }
-}
-
-@Composable
-private fun FeaturedActionCard(
-    title: String,
-    subtitle: String,
-    meta: String,
-    icon: ImageVector,
-    accent: Color,
-    container: Color,
-    contentColor: Color,
-    onClick: () -> Unit,
-) {
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.elevatedCardColors(containerColor = container),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
-    ) {
-        Row(
-            modifier = Modifier.padding(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = accent.copy(alpha = if (contentColor == Sand050) 0.24f else 0.16f),
-            ) {
-                Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = contentColor)
-                }
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(meta, style = MaterialTheme.typography.labelLarge, color = contentColor.copy(alpha = 0.82f))
-                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold, color = contentColor)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = contentColor.copy(alpha = 0.86f))
-            }
-            Text(
-                "Открыть",
+                title,
                 style = MaterialTheme.typography.labelLarge,
                 color = contentColor,
             )
@@ -619,105 +514,314 @@ private fun FeaturedActionCard(
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Section Header
+// ═══════════════════════════════════════════════════════════════
+
 @Composable
-private fun AttentionSection(
-    items: List<DashboardItemDto>,
-    onOpenObject: (String) -> Unit,
+private fun SectionHeader(
+    title: String,
+    count: Int? = null,
+    accentColor: Color = Green900,
 ) {
-    HomePanel(
-        title = "Нужно внимание",
-        hint = "Сюда попадает то, что выглядит наиболее живым и требующим реакции прямо сейчас.",
-        accent = Brick300.copy(alpha = 0.28f),
-        marker = "ATTENTION",
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = Sand050,
-            border = BorderStroke(1.dp, Brick300.copy(alpha = 0.45f)),
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        if (count != null && count > 0) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = accentColor.copy(alpha = 0.12f),
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Сигналы на сейчас", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        if (items.isEmpty()) "Срочных элементов нет." else "Сначала открой верхние карточки, потом иди в поток.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
                 Text(
-                    if (items.isEmpty()) "0" else "${items.size} сигн.",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = Brick600,
-                    fontWeight = FontWeight.SemiBold,
+                    count.toString(),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = accentColor,
                 )
-            }
-        }
-        if (items.isEmpty()) {
-            EmptyStateCard(
-                title = "Срочных сигналов нет",
-                message = "Это хороший сценарий: можно идти в проекты или задачи без чувства, что что-то уже горит.",
-            )
-        } else {
-            items.forEach { item ->
-                AttentionCard(item = item, onOpenObject = onOpenObject)
             }
         }
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Attention Cards
+// ═══════════════════════════════════════════════════════════════
+
 @Composable
 private fun AttentionCard(
     item: DashboardItemDto,
+    isFirst: Boolean,
     onOpenObject: (String) -> Unit,
 ) {
-    val statusLabel = item.status?.takeIf { it.isNotBlank() } ?: "Нужен просмотр"
-    Surface(
+    val statusLabel = item.status?.takeIf { it.isNotBlank() }
+    val statusColor = when (statusLabel?.lowercase()) {
+        "in_progress", "в работе" -> Info500
+        "completed", "завершён" -> Success500
+        "on_hold", "на паузе" -> Amber500
+        else -> Brick500
+    }
+    val statusBg = when (statusLabel?.lowercase()) {
+        "in_progress", "в работе" -> Info100
+        "completed", "завершён" -> Success100
+        "on_hold", "на паузе" -> Amber100
+        else -> Brick100
+    }
+
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onOpenObject(item.id) },
-        shape = RoundedCornerShape(22.dp),
-        border = BorderStroke(1.dp, Brick300.copy(alpha = 0.7f)),
-        color = Sand050,
+            .padding(horizontal = 20.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = { onOpenObject(item.id) },
+            ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isFirst) Sand050 else MaterialTheme.colorScheme.surface,
+        ),
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isFirst) 3.dp else 1.dp,
+        ),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Left accent dot
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .clip(CircleShape)
+                    .background(if (isFirst) Brick500 else Brick300),
+            )
+
+            Spacer(Modifier.width(14.dp))
+
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = item.title ?: item.name ?: item.id,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (statusLabel != null) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = statusBg,
+                        ) {
+                            Text(
+                                statusLabel,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = statusColor,
+                            )
+                        }
+                    }
+                    item.type?.let { type ->
+                        Text(
+                            type,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    val date = item.dueDate ?: item.startDate
+                    if (date != null) {
+                        Text(
+                            date,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            Icon(
+                Icons.AutoMirrored.Rounded.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                modifier = Modifier.size(18.dp),
+            )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Flow Carousel (Directions)
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun FlowCarousel(
+    items: List<DashboardItemDto>,
+    onOpenObject: (String) -> Unit,
+) {
+    LazyRow(
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        items(items.take(8)) { item ->
+            FlowCard(item = item, onOpenObject = onOpenObject)
+        }
+    }
+}
+
+@Composable
+private fun FlowCard(
+    item: DashboardItemDto,
+    onOpenObject: (String) -> Unit,
+) {
+    Card(
+        modifier = Modifier
+            .width(200.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = { onOpenObject(item.id) },
+            ),
+        colors = CardDefaults.cardColors(containerColor = Sand050),
+        shape = RoundedCornerShape(18.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            // Type badge at top
+            item.type?.let { type ->
                 Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = Brick300.copy(alpha = 0.42f),
+                    shape = RoundedCornerShape(8.dp),
+                    color = Green100,
                 ) {
                     Text(
-                        statusLabel,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Brick600,
+                        type,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Green900,
                     )
                 }
-                Text(
-                    "Открыть",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Green900,
-                )
             }
+
             Text(
                 text = item.title ?: item.name ?: item.id,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
-            val meta = listOfNotNull(item.type, item.dueDate ?: item.startDate).joinToString(" • ")
+
+            item.status?.takeIf { it.isNotBlank() }?.let { status ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(Success500),
+                    )
+                    Text(
+                        status,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+
+            val date = item.dueDate ?: item.startDate
+            if (date != null) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Rounded.CalendarMonth,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp),
+                    )
+                    Text(
+                        date,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Event Rows
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun EventRow(
+    item: DashboardItemDto,
+    onOpenObject: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = { onOpenObject(item.id) },
+            )
+            .padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Surface(
+            shape = RoundedCornerShape(10.dp),
+            color = Sand100,
+            modifier = Modifier.size(40.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Rounded.Notifications,
+                    contentDescription = null,
+                    tint = Sand300.copy(alpha = 1f).let { Amber500 },
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+        }
+
+        Spacer(Modifier.width(14.dp))
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = item.title ?: item.name ?: item.id,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val meta = listOfNotNull(item.type, item.dueDate ?: item.startDate).joinToString(" \u00B7 ")
             if (meta.isNotBlank()) {
                 Text(
                     meta,
@@ -726,172 +830,117 @@ private fun AttentionCard(
                 )
             }
         }
+
+        Icon(
+            Icons.AutoMirrored.Rounded.ArrowForward,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f),
+            modifier = Modifier.size(16.dp),
+        )
     }
 }
 
+// ═══════════════════════════════════════════════════════════════
+// Empty Dashboard
+// ═══════════════════════════════════════════════════════════════
+
 @Composable
-private fun SecondaryActionsSection(
-    onOpenSection: (MainSection) -> Unit,
-) {
-    HomePanel(
-        title = "Дальше по работе",
-        hint = "Менее срочные, но частые переходы, которые всё ещё должны быть рядом с главным контуром.",
-        accent = Sand100,
-        marker = "SUPPORT",
+private fun EmptyDashboard(onOpenSection: (MainSection) -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        Surface(
+            shape = CircleShape,
+            color = Green100,
+            modifier = Modifier.size(64.dp),
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription = null,
+                    tint = Green700,
+                    modifier = Modifier.size(32.dp),
+                )
+            }
+        }
+        Text(
+            "Всё спокойно",
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        Text(
+            "Нет срочных задач и событий.\nМожно заняться проектами.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Explore Section (secondary navigation)
+// ═══════════════════════════════════════════════════════════════
+
+@Composable
+private fun ExploreSection(onOpenSection: (MainSection) -> Unit) {
+    Column(
+        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            "Ещё",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 4.dp),
+        )
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            SecondaryActionChip("Знания", Icons.Outlined.AutoStories) { onOpenSection(MainSection.KNOWLEDGE) }
-            SecondaryActionChip("Новости", Icons.Outlined.Newspaper) { onOpenSection(MainSection.NEWS) }
-            SecondaryActionChip("Шаблоны", Icons.Outlined.Description) { onOpenSection(MainSection.TEMPLATES) }
-            SecondaryActionChip("Профиль", Icons.Outlined.TaskAlt) { onOpenSection(MainSection.PROFILE) }
+            ExploreChip("Задачи", Icons.Rounded.CheckCircle) { onOpenSection(MainSection.TODOS) }
+            ExploreChip("Знания", Icons.Rounded.AutoStories) { onOpenSection(MainSection.KNOWLEDGE) }
+            ExploreChip("Новости", Icons.Rounded.Newspaper) { onOpenSection(MainSection.NEWS) }
+            ExploreChip("Шаблоны", Icons.Rounded.Description) { onOpenSection(MainSection.TEMPLATES) }
         }
     }
 }
 
 @Composable
-private fun SecondaryActionChip(
+private fun ExploreChip(
     label: String,
     icon: ImageVector,
     onClick: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        modifier = Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick,
+            ),
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-            Text(label, color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.labelLarge)
-        }
-    }
-}
-
-@Composable
-private fun DashboardCollectionSection(
-    title: String,
-    hint: String,
-    items: List<DashboardItemDto>,
-    emptyTitle: String,
-    emptyMessage: String,
-    onOpenObject: (String) -> Unit,
-) {
-    HomePanel(
-        title = title,
-        hint = hint,
-        accent = Green900.copy(alpha = 0.06f),
-        marker = if (title == "Рабочий поток") "FLOW" else "SIGNALS",
-    ) {
-        if (items.isEmpty()) {
-            EmptyStateCard(
-                title = emptyTitle,
-                message = emptyMessage,
-            )
-        } else {
-            items.take(5).forEach { item ->
-                DashboardListRow(item = item, onOpenObject = onOpenObject)
-            }
-        }
-    }
-}
-
-@Composable
-private fun DashboardListRow(
-    item: DashboardItemDto,
-    onOpenObject: (String) -> Unit,
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onOpenObject(item.id) },
-        shape = RoundedCornerShape(18.dp),
-        color = Sand100,
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Text(
-                item.title ?: item.name ?: item.id,
-                style = MaterialTheme.typography.titleSmall,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val meta = listOfNotNull(item.type, item.status, item.startDate, item.dueDate).joinToString(" • ")
-            if (meta.isNotBlank()) {
-                Text(
-                    meta,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            HorizontalDivider(
-                thickness = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f),
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(18.dp),
             )
             Text(
-                "Открыть объект",
+                label,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelLarge,
-                color = Green900,
             )
-        }
-    }
-}
-
-@Composable
-private fun HomePanel(
-    title: String,
-    hint: String,
-    accent: Color,
-    marker: String,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        color = Sand050,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-    ) {
-        Column(
-            modifier = Modifier
-                .background(
-                    brush = Brush.verticalGradient(
-                        listOf(
-                            accent.copy(alpha = 0.9f),
-                            Sand050,
-                        ),
-                    ),
-                    shape = RoundedCornerShape(28.dp),
-                )
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = Green900.copy(alpha = 0.10f),
-                ) {
-                    Text(
-                        marker,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Green900,
-                    )
-                }
-                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Text(
-                    hint,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            content()
         }
     }
 }
