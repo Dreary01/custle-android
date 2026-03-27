@@ -7,6 +7,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -25,10 +26,9 @@ import androidx.compose.material.icons.outlined.FolderCopy
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.TaskAlt
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -43,7 +43,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -113,7 +112,7 @@ fun DocumentsScreen(
     confirmDeleteFile?.let { file ->
         DestructiveConfirmDialog(
             title = "Удалить документ?",
-            message = "Файл ${fileName(file)} будет удалён из карточки объекта. Это действие лучше подтверждать осознанно.",
+            message = "Файл ${fileName(file)} будет удалён.",
             isBusy = state.mutatingDocId == file.docId,
             onConfirm = {
                 onDelete(file)
@@ -150,15 +149,10 @@ fun DocumentsScreen(
         if (state.isLoading || state.isReindexing) {
             item {
                 AppSectionCard(
-                    title = if (state.isReindexing) "Идёт индексация" else "Обновляем список",
-                    hint = if (state.isReindexing) {
-                        if (state.queuedForReindex > 0) "Ещё ${state.queuedForReindex} файлов ждут обработки." else "Список и индекс синхронизируются."
-                    } else {
-                        "Подтягиваем актуальный список файлов и статус индекса."
-                    },
+                    title = if (state.isReindexing) "Идёт индексация" else "Загрузка",
                 ) {
                     Text(
-                        text = if (state.isReindexing) "Экран сам обновит статусы, когда индекс догонит файлы." else "Новые документы и изменения могут появиться через секунду.",
+                        text = if (state.isReindexing && state.queuedForReindex > 0) "Ещё ${state.queuedForReindex} файлов." else "Обновление списка...",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -168,14 +162,14 @@ fun DocumentsScreen(
         if (state.downloadedPath != null) {
             item {
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Text("Последний скачанный файл", style = MaterialTheme.typography.titleSmall)
+                        Text("Скачанный файл", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                         Text(
                             state.downloadedPath,
                             style = MaterialTheme.typography.bodySmall,
@@ -187,7 +181,10 @@ fun DocumentsScreen(
         }
         if (state.files.isEmpty() && !state.isLoading) {
             item {
-                EmptyDocumentsState()
+                EmptyStateCard(
+                    title = "Документов нет",
+                    message = "Загруженные файлы появятся здесь.",
+                )
             }
         } else {
             items(state.files, key = { it.docId }) { file ->
@@ -226,7 +223,7 @@ private fun DocumentsHero(
 ) {
     AppHeroCard(
         title = objectName ?: "Документы",
-        subtitle = "Файловый контур объекта: просмотр, загрузка, скачивание, шаринг и контроль индексации без desktop-панели.",
+        subtitle = "$totalCount файлов, $indexedCount индексировано",
         chips = buildList {
             add("$totalCount файлов" to Icons.Outlined.FolderCopy)
             add("$indexedCount индекс." to Icons.Outlined.TaskAlt)
@@ -259,26 +256,18 @@ private fun DocumentsHero(
         }
         uploadingFileName?.let {
             Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
             ) {
                 Text(
-                    "Сейчас загружается: $it",
+                    "Загружается: $it",
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
     }
-}
-
-@Composable
-private fun EmptyDocumentsState() {
-    EmptyStateCard(
-        title = "Документов пока нет",
-        message = "Когда здесь появятся файлы, экран должен сразу помогать понять: что загружено, что можно открыть и что ещё не проиндексировано.",
-    )
 }
 
 @Composable
@@ -299,7 +288,7 @@ private fun DocumentRow(
     var isRenaming by remember(file.docId) { mutableStateOf(false) }
     var draftName by remember(file.docId, file.id) { mutableStateOf(fileName(file)) }
 
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -307,6 +296,7 @@ private fun DocumentRow(
             Text(
                 text = fileName(file),
                 style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -321,7 +311,7 @@ private fun DocumentRow(
             val meta = buildList {
                 file.objectName?.let { add(it) }
                 file.authorName?.let { add(it) }
-            }.joinToString(" • ")
+            }.joinToString(" / ")
             if (meta.isNotBlank()) {
                 Text(
                     meta,
@@ -363,14 +353,11 @@ private fun DocumentRow(
                 }
             }
             if (isRenaming) {
-                AppSectionCard(
-                    title = "Переименование",
-                    hint = "Измени имя файла, не теряя контекста карточки.",
-                ) {
+                AppSectionCard(title = "Переименование") {
                     OutlinedTextField(
                         value = draftName,
                         onValueChange = { draftName = it },
-                        label = { Text("Новое имя файла") },
+                        label = { Text("Новое имя") },
                         modifier = Modifier.fillMaxWidth(),
                         enabled = !isMutating,
                         singleLine = true,
@@ -402,29 +389,33 @@ private fun DocumentRow(
 }
 
 @Composable
-private fun DocumentMetaChip(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-) {
-    AssistChip(
-        onClick = {},
-        label = { Text(label) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
-    )
-}
-
-@Composable
 private fun StatusBadge(label: String) {
     Surface(
         shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Text(
             text = label,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun DsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        content()
     }
 }
 

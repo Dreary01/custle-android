@@ -2,34 +2,34 @@
 
 package ru.custle.mobile.feature.knowledge
 
-import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,16 +48,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.serialization.json.JsonElement
 import ru.custle.mobile.core.model.ArticleDto
 import ru.custle.mobile.core.model.NoteDto
-import ru.custle.mobile.core.ui.components.AppHeroCard
-import ru.custle.mobile.core.ui.components.AppSectionCard
 import ru.custle.mobile.core.ui.components.DestructiveConfirmDialog
-import ru.custle.mobile.core.ui.components.EmptyStateCard
 import ru.custle.mobile.core.ui.components.ErrorBanner
 import java.time.Instant
 import java.time.ZoneId
@@ -93,10 +89,20 @@ fun KnowledgeBaseScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .statusBarsPadding()
-                    .background(MaterialTheme.colorScheme.surface),
+                    .statusBarsPadding(),
             ) {
-                KnowledgeTopBar(state = state, onTabChange = onTabChange)
+                TabRow(selectedTabIndex = state.tab.ordinal) {
+                    Tab(
+                        selected = state.tab == KnowledgeTab.NOTES,
+                        onClick = { onTabChange(KnowledgeTab.NOTES) },
+                        text = { Text("Заметки") },
+                    )
+                    Tab(
+                        selected = state.tab == KnowledgeTab.ARTICLES,
+                        onClick = { onTabChange(KnowledgeTab.ARTICLES) },
+                        text = { Text("Статьи") },
+                    )
+                }
             }
         },
     ) { padding ->
@@ -172,7 +178,7 @@ fun KnowledgeBaseScreen(
     if (confirmDeleteNote && state.selectedNote != null) {
         DestructiveConfirmDialog(
             title = "Удалить заметку?",
-            message = "Заметка \"${state.selectedNote.title}\" будет удалена из базы знаний.",
+            message = "Заметка \"${state.selectedNote.title}\" будет удалена.",
             isBusy = state.isSaving,
             onConfirm = {
                 onDeleteNote()
@@ -185,7 +191,7 @@ fun KnowledgeBaseScreen(
     if (confirmDeleteArticle && state.selectedArticle != null) {
         DestructiveConfirmDialog(
             title = "Удалить статью?",
-            message = "Статья \"${state.selectedArticle.title}\" будет удалена. Это лучше подтверждать отдельно.",
+            message = "Статья \"${state.selectedArticle.title}\" будет удалена.",
             isBusy = state.isSaving,
             onConfirm = {
                 onDeleteArticle()
@@ -193,42 +199,6 @@ fun KnowledgeBaseScreen(
             },
             onDismiss = { confirmDeleteArticle = false },
         )
-    }
-}
-
-@Composable
-private fun KnowledgeTopBar(
-    state: KnowledgeUiState,
-    onTabChange: (KnowledgeTab) -> Unit,
-) {
-    Column(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        AppHeroCard(
-            title = "База знаний",
-            subtitle = "Мобильное пространство для заметок и статей. Здесь важно быстро читать, фиксировать мысли и не теряться между режимами.",
-            chips = listOf(
-                "${state.notes.size} заметок" to Icons.Outlined.AutoStories,
-                "${state.articles.size} статей" to Icons.AutoMirrored.Outlined.Article,
-                (if (state.tab == KnowledgeTab.NOTES) "Режим заметок" else "Режим статей") to
-                    (if (state.tab == KnowledgeTab.NOTES) Icons.Outlined.Lock else Icons.Outlined.Public),
-            ),
-        )
-        TabRow(selectedTabIndex = state.tab.ordinal) {
-            Tab(
-                selected = state.tab == KnowledgeTab.NOTES,
-                onClick = { onTabChange(KnowledgeTab.NOTES) },
-                text = { Text("Заметки") },
-                icon = { Icon(Icons.Outlined.AutoStories, contentDescription = null) },
-            )
-            Tab(
-                selected = state.tab == KnowledgeTab.ARTICLES,
-                onClick = { onTabChange(KnowledgeTab.ARTICLES) },
-                text = { Text("Статьи") },
-                icon = { Icon(Icons.AutoMirrored.Outlined.Article, contentDescription = null) },
-            )
-        }
     }
 }
 
@@ -248,41 +218,55 @@ private fun NotesListScreen(
         NotesFilter.SHARED -> notes.filter { !it.isPrivate }
     }
 
-    Column(
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        KnowledgeToolbar(
-            isLoading = isLoading,
-            errorMessage = errorMessage,
-            createLabel = "Новая заметка",
-            onCreate = onCreate,
-            onRefresh = onRefresh,
-        )
-        TabRow(selectedTabIndex = filter.ordinal) {
-            Tab(
-                selected = filter == NotesFilter.PRIVATE,
-                onClick = { onFilterChange(NotesFilter.PRIVATE) },
-                text = { Text("Личные") },
-                icon = { Icon(Icons.Outlined.Lock, contentDescription = null) },
-            )
-            Tab(
-                selected = filter == NotesFilter.SHARED,
-                onClick = { onFilterChange(NotesFilter.SHARED) },
-                text = { Text("Общие") },
-                icon = { Icon(Icons.Outlined.Public, contentDescription = null) },
+        item {
+            ListToolbar(
+                isLoading = isLoading,
+                errorMessage = errorMessage,
+                onCreate = onCreate,
+                onRefresh = onRefresh,
             )
         }
-        if (filtered.isEmpty()) {
-            EmptyState("Пока нет заметок")
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+        item {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(filtered, key = { it.id }) { note ->
-                    NoteCard(note = note, onOpenNote = onOpenNote)
+                FilterChip(
+                    selected = filter == NotesFilter.PRIVATE,
+                    onClick = { onFilterChange(NotesFilter.PRIVATE) },
+                    label = { Text("Личные") },
+                    leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null) },
+                )
+                FilterChip(
+                    selected = filter == NotesFilter.SHARED,
+                    onClick = { onFilterChange(NotesFilter.SHARED) },
+                    label = { Text("Общие") },
+                    leadingIcon = { Icon(Icons.Outlined.Public, contentDescription = null) },
+                )
+            }
+        }
+        if (filtered.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "Нет заметок",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
+            }
+        } else {
+            items(filtered, key = { it.id }) { note ->
+                NoteCard(note = note, onOpenNote = onOpenNote)
             }
         }
     }
@@ -297,71 +281,75 @@ private fun ArticlesListScreen(
     isLoading: Boolean,
     errorMessage: String?,
 ) {
-    Column(
+    LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        KnowledgeToolbar(
-            isLoading = isLoading,
-            errorMessage = errorMessage,
-            createLabel = "Новая статья",
-            onCreate = onCreate,
-            onRefresh = onRefresh,
-        )
+        item {
+            ListToolbar(
+                isLoading = isLoading,
+                errorMessage = errorMessage,
+                onCreate = onCreate,
+                onRefresh = onRefresh,
+            )
+        }
         if (articles.isEmpty()) {
-            EmptyState("Пока нет статей")
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                items(articles, key = { it.id }) { article ->
-                    ArticleCard(article = article, onOpenArticle = onOpenArticle)
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "Нет статей",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
+            }
+        } else {
+            items(articles, key = { it.id }) { article ->
+                ArticleCard(article = article, onOpenArticle = onOpenArticle)
             }
         }
     }
 }
 
 @Composable
-private fun KnowledgeToolbar(
+private fun ListToolbar(
     isLoading: Boolean,
     errorMessage: String?,
-    createLabel: String,
     onCreate: () -> Unit,
     onRefresh: () -> Unit,
 ) {
     Column(
-        modifier = Modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (!errorMessage.isNullOrBlank()) {
             ErrorBanner(errorMessage)
         }
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            if (isLoading) {
                 Text(
-                    text = if (isLoading) "Обновление списка..." else "Открой карточку, чтобы читать или редактировать",
+                    "Загрузка...",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                 )
-                Button(onClick = onCreate) {
-                    Icon(Icons.Outlined.Add, contentDescription = null)
-                    Text(createLabel)
-                }
-                IconButton(onClick = onRefresh) {
-                    Icon(Icons.Outlined.Refresh, contentDescription = "Обновить")
-                }
+            } else {
+                Spacer(modifier = Modifier.weight(1f))
+            }
+            IconButton(onClick = onRefresh) {
+                Icon(Icons.Outlined.Refresh, contentDescription = null)
+            }
+            Button(onClick = onCreate) {
+                Icon(Icons.Outlined.Add, contentDescription = null)
             }
         }
     }
@@ -372,23 +360,46 @@ private fun NoteCard(
     note: NoteDto,
     onOpenNote: (String) -> Unit,
 ) {
-    ElevatedCard(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clickable { onOpenNote(note.id) },
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            ItemHeader(
-                title = note.title,
-                subtitle = if (note.isPrivate) "Личная заметка" else "Общая заметка",
-                trailing = formatDate(note.updatedAt),
+            Text(
+                note.title,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
             )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (note.isPrivate) {
+                    Icon(
+                        Icons.Outlined.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.height(14.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Text(
+                    formatDate(note.updatedAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             BodyPreview(note.content, note.contentJson)
-            TagsText(note.tags)
+            TagsRow(note.tags)
         }
     }
 }
@@ -398,23 +409,46 @@ private fun ArticleCard(
     article: ArticleDto,
     onOpenArticle: (String) -> Unit,
 ) {
-    ElevatedCard(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .clickable { onOpenArticle(article.id) },
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            ItemHeader(
-                title = article.title,
-                subtitle = article.category.ifBlank { if (article.isPublished) "Опубликовано" else "Черновик" },
-                trailing = formatDate(article.updatedAt),
+            Text(
+                article.title,
+                style = MaterialTheme.typography.titleSmall,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface,
             )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val status = article.category.ifBlank {
+                    if (article.isPublished) "Опубликовано" else "Черновик"
+                }
+                Text(
+                    status,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    formatDate(article.updatedAt),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             BodyPreview(article.content, article.contentJson)
-            TagsText(article.tags)
+            TagsRow(article.tags)
         }
     }
 }
@@ -429,11 +463,11 @@ private fun NoteDetailScreen(
 ) {
     DetailScreen(
         title = note.title,
-        subtitle = if (note.isPrivate) "Личная заметка" else "Общая заметка",
-        metadata = listOf(
-            "Создано: ${formatDate(note.createdAt)}",
-            "Обновлено: ${formatDate(note.updatedAt)}",
-            note.createdBy?.let { "Автор: $it" },
+        subtitle = if (note.isPrivate) "Личная" else "Общая",
+        metadata = listOfNotNull(
+            formatDate(note.createdAt).takeIf { it.isNotBlank() },
+            formatDate(note.updatedAt).takeIf { it.isNotBlank() },
+            note.createdBy,
         ),
         tags = note.tags,
         body = note.content,
@@ -456,10 +490,10 @@ private fun ArticleDetailScreen(
     DetailScreen(
         title = article.title,
         subtitle = article.category.ifBlank { if (article.isPublished) "Опубликовано" else "Черновик" },
-        metadata = listOf(
-            "Создано: ${formatDate(article.createdAt)}",
-            "Обновлено: ${formatDate(article.updatedAt)}",
-            article.createdBy?.let { "Автор: $it" },
+        metadata = listOfNotNull(
+            formatDate(article.createdAt).takeIf { it.isNotBlank() },
+            formatDate(article.updatedAt).takeIf { it.isNotBlank() },
+            article.createdBy,
         ),
         tags = article.tags,
         body = article.content,
@@ -486,59 +520,87 @@ private fun DetailScreen(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                AppHeroCard(
-                    title = title,
-                    subtitle = subtitle,
-                    chips = listOf(
-                        "Изменить" to Icons.Outlined.Edit,
-                        "Удалить" to Icons.Outlined.Delete,
-                    ),
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
-                            Text("Назад")
-                        }
-                        Button(onClick = onEdit, enabled = !isSaving) {
-                            Icon(Icons.Outlined.Edit, contentDescription = null)
-                            Text("Изменить")
-                        }
-                        OutlinedButton(onClick = onDelete, enabled = !isSaving) {
-                            Icon(Icons.Outlined.Delete, contentDescription = null)
-                            Text(if (isSaving) "Удаление..." else "Удалить")
-                        }
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
                     }
-                }
-            }
-        }
-        item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                AppSectionCard(title = "Метаданные") {
-                    metadata.filterNotNull().forEach { line ->
-                        Text(line, style = MaterialTheme.typography.bodySmall)
-                    }
-                    TagsText(tags)
-                }
-            }
-        }
-        item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                AppSectionCard(title = "Содержимое") {
-                    val display = body.ifBlank { contentJson?.toString().orEmpty() }
-                    if (display.isBlank()) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Пока без содержимого",
+                            title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            subtitle,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                    } else {
-                        Text(display, style = MaterialTheme.typography.bodyMedium)
+                    }
+                    IconButton(onClick = onEdit, enabled = !isSaving) {
+                        Icon(Icons.Outlined.Edit, contentDescription = null)
+                    }
+                    IconButton(onClick = onDelete, enabled = !isSaving) {
+                        Icon(Icons.Outlined.Delete, contentDescription = null)
                     }
                 }
+            }
+        }
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    val metaText = metadata.filterNotNull().filter { it.isNotBlank() }
+                    if (metaText.isNotEmpty()) {
+                        Text(
+                            metaText.joinToString(" / "),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    TagsRow(tags)
+                }
+            }
+        }
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
+                val display = body.ifBlank { contentJson?.toString().orEmpty() }
+                Text(
+                    text = display.ifBlank { "\u2014" },
+                    modifier = Modifier.padding(14.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (display.isBlank()) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.onSurface
+                    },
+                )
             }
         }
     }
@@ -557,7 +619,7 @@ private fun NoteEditorScreen(
     onPrivacyChange: (Boolean) -> Unit,
 ) {
     EditorScreen(
-        title = if (draft.id == null) "Новая заметка" else "Редактирование заметки",
+        title = if (draft.id == null) "Новая заметка" else "Редактирование",
         isSaving = isSaving,
         errorMessage = errorMessage,
         onBack = onBack,
@@ -576,7 +638,7 @@ private fun NoteEditorScreen(
             onValueChange = onContentChange,
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Содержимое") },
-            minLines = 8,
+            minLines = 6,
         )
         OutlinedTextField(
             value = draft.tags,
@@ -590,14 +652,11 @@ private fun NoteEditorScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                Text("Приватная заметка", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    if (draft.isPrivate) "Видна только автору" else "Доступна в workspace",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                "Приватная",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
             Switch(checked = draft.isPrivate, onCheckedChange = onPrivacyChange)
         }
     }
@@ -617,7 +676,7 @@ private fun ArticleEditorScreen(
     onPublishedChange: (Boolean) -> Unit,
 ) {
     EditorScreen(
-        title = if (draft.id == null) "Новая статья" else "Редактирование статьи",
+        title = if (draft.id == null) "Новая статья" else "Редактирование",
         isSaving = isSaving,
         errorMessage = errorMessage,
         onBack = onBack,
@@ -643,7 +702,7 @@ private fun ArticleEditorScreen(
             onValueChange = onContentChange,
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Содержимое") },
-            minLines = 8,
+            minLines = 6,
         )
         OutlinedTextField(
             value = draft.tags,
@@ -657,14 +716,11 @@ private fun ArticleEditorScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                Text("Публикация", style = MaterialTheme.typography.titleSmall)
-                Text(
-                    if (draft.isPublished) "Статья опубликована" else "Черновик",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                if (draft.isPublished) "Опубликовано" else "Черновик",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
             Switch(checked = draft.isPublished, onCheckedChange = onPublishedChange)
         }
     }
@@ -682,53 +738,54 @@ private fun EditorScreen(
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                AppHeroCard(
-                    title = title,
-                    subtitle = "Редактор должен ощущаться как спокойная рабочая форма, а не как служебная админка.",
-                    chips = listOf("Сохранить" to Icons.Outlined.Add),
-                ) {
-                    if (!errorMessage.isNullOrBlank()) {
-                        ErrorBanner(errorMessage)
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
-                            Text("Назад")
-                        }
-                        Button(onClick = onSave, enabled = canSave && !isSaving) {
-                            Text(if (isSaving) "Сохранение..." else "Сохранить")
-                        }
-                    }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
+                }
+                Text(
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Button(onClick = onSave, enabled = canSave && !isSaving) {
+                    Text(if (isSaving) "..." else "Сохранить")
+                }
+            }
+        }
+        if (!errorMessage.isNullOrBlank()) {
+            item {
+                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    ErrorBanner(errorMessage)
                 }
             }
         }
         item {
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                AppSectionCard(title = "Поля") {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                     content()
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun ItemHeader(
-    title: String,
-    subtitle: String,
-    trailing: String,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Text(
-            text = listOf(subtitle, trailing).filter { it.isNotBlank() }.joinToString(" • "),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -740,50 +797,36 @@ private fun BodyPreview(
     val display = body.ifBlank { contentJson?.toString().orEmpty() }
     if (display.isNotBlank()) {
         Text(
-            text = display.take(220),
+            text = display.take(200),
             style = MaterialTheme.typography.bodySmall,
-            maxLines = 4,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 3,
             overflow = TextOverflow.Ellipsis,
         )
     }
 }
 
 @Composable
-private fun TagsText(tags: String) {
+private fun TagsRow(tags: String) {
     if (tags.isBlank()) return
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Text(
-            text = "Теги: $tags",
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-        )
+        tags.split(",", " ").filter { it.isNotBlank() }.forEach { tag ->
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+            ) {
+                Text(
+                    text = tag.trim(),
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+        }
     }
-}
-
-@Composable
-private fun EmptyState(message: String) {
-    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        EmptyStateCard(
-            title = message,
-            message = "Этот раздел заполнится, когда в базе знаний появится контент.",
-        )
-    }
-}
-
-@Composable
-private fun KnowledgeChip(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-) {
-    AssistChip(
-        onClick = {},
-        label = { Text(label) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
-    )
 }
 
 private val dateFormatter: DateTimeFormatter =

@@ -1,5 +1,6 @@
 package ru.custle.mobile.feature.marketplace
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,8 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -37,6 +40,7 @@ import ru.custle.mobile.core.data.AppContainer
 import ru.custle.mobile.core.data.LocalAppContainer
 import ru.custle.mobile.core.model.MarketplaceConfigDto
 import ru.custle.mobile.core.model.MarketplaceInstallationDto
+import ru.custle.mobile.core.ui.components.ErrorBanner
 
 data class MarketplaceUiState(
     val isLoading: Boolean = false,
@@ -141,29 +145,40 @@ fun MarketplaceScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Text("Marketplace", style = MaterialTheme.typography.headlineSmall)
-            Text("Read-only/admin-light inspector для marketplace configs и installations.", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Маркетплейс",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onRefresh) { Text("Обновить") }
-                OutlinedButton(onClick = { tab = "configs" }) { Text("Configs") }
-                OutlinedButton(onClick = { tab = "installs" }) { Text("Installations") }
+                OutlinedButton(onClick = { tab = "configs" }) { Text("Конфигурации") }
+                OutlinedButton(onClick = { tab = "installs" }) { Text("Установки") }
             }
         }
         state.errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
-            item { Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            item { ErrorBanner(message) }
         }
         if (tab == "installs" && state.selectedInstallation != null) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                DsCard {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(state.selectedInstallation.configName, style = MaterialTheme.typography.titleLarge)
-                        Text(state.selectedInstallation.installedAt, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        Text("Credentials", style = MaterialTheme.typography.titleSmall)
-                        Text(state.selectedInstallation.credentials?.let(json::encodeToString).orEmpty(), style = MaterialTheme.typography.bodySmall)
-                        Text("Sync status", style = MaterialTheme.typography.titleSmall)
-                        Text(state.syncStatus?.let(json::encodeToString).orEmpty().ifBlank { "null" }, style = MaterialTheme.typography.bodySmall)
+                        Text(state.selectedInstallation.configName, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
+                        Text(state.selectedInstallation.installedAt, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text("Credentials", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            state.selectedInstallation.credentials?.let(json::encodeToString).orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text("Sync status", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            state.syncStatus?.let(json::encodeToString).orEmpty().ifBlank { "null" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         OutlinedButton(onClick = onCloseInstallation) { Text("Свернуть") }
                     }
                 }
@@ -171,19 +186,19 @@ fun MarketplaceScreen(
         }
         if (tab == "configs") {
             if (state.configs.isEmpty() && !state.isLoading) {
-                item { EmptyCard("Marketplace configs не найдены") }
+                item { EmptyCard("Конфигурации не найдены") }
             } else {
                 items(state.configs, key = { it.id }) { item ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    DsCard {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(item.name, style = MaterialTheme.typography.titleMedium)
+                            Text(item.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                             Text(
-                                listOfNotNull(item.category, if (item.isPublished) "published" else "draft", if (item.installed) "installed" else null).joinToString(" • "),
+                                listOfNotNull(item.category, if (item.isPublished) "published" else "draft", if (item.installed) "installed" else null).joinToString(" / "),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             item.description?.takeIf { it.isNotBlank() }?.let {
-                                Text(it, style = MaterialTheme.typography.bodySmall)
+                                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -194,10 +209,10 @@ fun MarketplaceScreen(
                 item { EmptyCard("Установок нет") }
             } else {
                 items(state.installations, key = { it.id }) { item ->
-                    Card(modifier = Modifier.fillMaxWidth().clickable { onOpenInstallation(item.id) }) {
+                    DsCard(modifier = Modifier.clickable { onOpenInstallation(item.id) }) {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(item.configName, style = MaterialTheme.typography.titleMedium)
-                            Text(item.installedAt, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                            Text(item.configName, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(item.installedAt, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -207,8 +222,24 @@ fun MarketplaceScreen(
 }
 
 @Composable
+private fun DsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        content()
+    }
+}
+
+@Composable
 private fun EmptyCard(text: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Text(text, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

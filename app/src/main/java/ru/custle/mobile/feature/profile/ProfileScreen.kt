@@ -2,6 +2,7 @@
 
 package ru.custle.mobile.feature.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -25,8 +26,9 @@ import androidx.compose.material.icons.outlined.PersonAddAlt
 import androidx.compose.material.icons.outlined.Verified
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
@@ -46,7 +48,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import ru.custle.mobile.core.data.AppUpdateCheckResult
@@ -183,14 +184,18 @@ fun ProfileScreen(
             }
         }
         item {
-            SectionHeading(
-                title = "Участники workspace",
-                hint = "Команда, роли и базовые административные действия",
+            Text(
+                "Участники workspace",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         if (workspaceMembers.isEmpty()) {
             item {
-                EmptyMembersState()
+                EmptyStateCard(
+                    title = "Участников нет",
+                    message = "Список участников workspace появится здесь.",
+                )
             }
         } else {
             items(workspaceMembers, key = { it.id }) { member ->
@@ -217,7 +222,7 @@ private fun ProfileHero(
 
     AppHeroCard(
         title = displayName,
-        subtitle = "Здесь собраны личные настройки, обновление приложения, Telegram и управление командой без прыжков по служебным экранам.",
+        subtitle = user?.email ?: "",
         chips = listOf(
             (user?.email ?: "Email не указан") to Icons.Outlined.Verified,
             "$membersCount участников" to Icons.Outlined.Groups,
@@ -236,30 +241,28 @@ private fun UpdateCard(
     onCheck: () -> Unit,
     onInstall: () -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SectionHeading(
-                title = "Обновление приложения",
-                hint = "APK ставится поверх текущей версии без потери данных",
-            )
+            Text("Обновление", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
             ) {
                 Text(
                     "Установлено: ${updateInfo?.currentVersionName ?: installedVersionName}",
                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             when {
-                checkingUpdate -> Text("Проверка обновлений…")
+                checkingUpdate -> Text("Проверка...", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 updateError != null -> ErrorBanner(updateError)
                 updateInfo?.updateAvailable == true -> {
-                    Text("Доступно: ${updateInfo.latest.versionName}", style = MaterialTheme.typography.bodyMedium)
+                    Text("Доступно: ${updateInfo.latest.versionName}", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -269,7 +272,7 @@ private fun UpdateCard(
                             enabled = !installingUpdate,
                             modifier = Modifier.weight(1f),
                         ) {
-                            Text(if (installingUpdate) "Скачивание…" else "Скачать и обновить")
+                            Text(if (installingUpdate) "Скачивание..." else "Обновить")
                         }
                         TextButton(
                             onClick = onCheck,
@@ -280,7 +283,7 @@ private fun UpdateCard(
                     }
                     if (!canRequestPackageInstalls) {
                         Text(
-                            "Android может один раз попросить разрешение на установку из этого приложения.",
+                            "Может потребоваться разрешение на установку.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -288,7 +291,7 @@ private fun UpdateCard(
                 }
                 else -> {
                     Text(
-                        "У вас уже актуальная версия.",
+                        "Актуальная версия.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -296,7 +299,7 @@ private fun UpdateCard(
                         onClick = onCheck,
                         enabled = !checkingUpdate && !installingUpdate,
                     ) {
-                        Text("Проверить ещё раз")
+                        Text("Проверить")
                     }
                 }
             }
@@ -314,15 +317,12 @@ private fun ProfileFormCard(
     onEmailChange: (String) -> Unit,
     onSave: () -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SectionHeading(
-                title = "Личные данные",
-                hint = "Минимум полей, только то, что реально нужно править с телефона",
-            )
+            Text("Личные данные", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             OutlinedTextField(
                 value = firstName,
                 onValueChange = onFirstNameChange,
@@ -342,7 +342,7 @@ private fun ProfileFormCard(
                 label = { Text("Email") },
             )
             Button(onClick = onSave, modifier = Modifier.fillMaxWidth()) {
-                Text("Сохранить изменения")
+                Text("Сохранить")
             }
         }
     }
@@ -355,15 +355,12 @@ private fun TelegramCard(
     onGenerateTelegramCode: () -> Unit,
     onUpdateTelegramAutoDelete: (Int) -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SectionHeading(
-                title = "Telegram",
-                hint = "Связка для уведомлений и рабочих сигналов",
-            )
+            Text("Telegram", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             if (telegramStatus?.linked == true) {
                 ProfileMetaChip(
                     "@${telegramStatus.telegramUsername ?: telegramStatus.botUsername}",
@@ -384,26 +381,26 @@ private fun TelegramCard(
                             label = {
                                 Text(if (value == 0) "Не удалять" else "$value мин")
                             },
-                            leadingIcon = { androidx.compose.material3.Icon(Icons.Outlined.LockClock, contentDescription = null) },
+                            leadingIcon = { Icon(Icons.Outlined.LockClock, contentDescription = null) },
                         )
                     }
                 }
             } else {
                 Text(
-                    "Telegram пока не привязан. Сгенерируй код и используй его в боте.",
+                    "Telegram не привязан.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (telegramCode.isNotBlank()) {
                     Surface(
-                        shape = RoundedCornerShape(18.dp),
-                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
                     ) {
                         Text(
-                            "Код привязки: $telegramCode",
+                            "Код: $telegramCode",
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
@@ -424,15 +421,12 @@ private fun InviteCard(
     onInviteRoleChange: (String) -> Unit,
     onCreateInvite: () -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SectionHeading(
-                title = "Invite участника",
-                hint = "Быстрый admin-light сценарий без отдельной админки",
-            )
+            Text("Пригласить участника", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             OutlinedTextField(
                 value = inviteEmail,
                 onValueChange = onInviteEmailChange,
@@ -463,26 +457,19 @@ private fun InviteCard(
             }
             if (workspaceInviteToken.isNotBlank()) {
                 Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
                     Text(
-                        "Invite token: $workspaceInviteToken",
+                        "Token: $workspaceInviteToken",
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
         }
     }
-}
-
-@Composable
-private fun EmptyMembersState() {
-    EmptyStateCard(
-        title = "Список участников пуст",
-        message = "Когда в workspace появятся люди, здесь будет удобный список ролей и быстрых действий.",
-    )
 }
 
 @Composable
@@ -492,7 +479,7 @@ private fun MemberCard(
     onUpdateWorkspaceMemberRole: (String, String) -> Unit,
     onRemoveWorkspaceMember: (String) -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -500,9 +487,10 @@ private fun MemberCard(
             Text(
                 listOfNotNull(member.firstName, member.lastName).joinToString(" ").ifBlank { member.email },
                 style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
             )
             Text(
-                listOfNotNull(member.email, member.role, if (member.isActive) "active" else "inactive").joinToString(" • "),
+                listOfNotNull(member.email, member.role, if (member.isActive) "active" else "inactive").joinToString(" / "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -524,26 +512,11 @@ private fun MemberCard(
                     AssistChip(
                         onClick = { onRemoveWorkspaceMember(member.id) },
                         label = { Text("Удалить") },
-                        leadingIcon = { androidx.compose.material3.Icon(Icons.Outlined.Delete, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
                     )
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SectionHeading(
-    title: String,
-    hint: String,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
-        Text(
-            hint,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
@@ -555,7 +528,7 @@ private fun ProfileMetaChip(
     AssistChip(
         onClick = {},
         label = { Text(label) },
-        leadingIcon = { androidx.compose.material3.Icon(icon, contentDescription = null) },
+        leadingIcon = { Icon(icon, contentDescription = null) },
     )
 }
 
@@ -569,7 +542,7 @@ private fun InviteRoleChip(
         onClick = onClick,
         label = { Text(if (selected) "[$label]" else label) },
         leadingIcon = {
-            androidx.compose.material3.Icon(
+            Icon(
                 if (selected) Icons.Outlined.Verified else Icons.Outlined.InstallMobile,
                 contentDescription = null,
             )
@@ -584,15 +557,12 @@ private fun ThemeCard() {
     val scope = rememberCoroutineScope()
     val isDark by container.sessionStore.darkThemeFlow.collectAsState(initial = true)
 
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SectionHeading(
-                title = "Оформление",
-                hint = "Выбери тему интерфейса",
-            )
+            Text("Оформление", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 SegmentedButton(
                     selected = isDark,
@@ -602,7 +572,7 @@ private fun ThemeCard() {
                     shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
                     icon = {
                         SegmentedButtonDefaults.Icon(isDark) {
-                            androidx.compose.material3.Icon(
+                            Icon(
                                 Icons.Outlined.DarkMode,
                                 contentDescription = null,
                                 modifier = Modifier.size(SegmentedButtonDefaults.IconSize),
@@ -620,7 +590,7 @@ private fun ThemeCard() {
                     shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
                     icon = {
                         SegmentedButtonDefaults.Icon(!isDark) {
-                            androidx.compose.material3.Icon(
+                            Icon(
                                 Icons.Outlined.LightMode,
                                 contentDescription = null,
                                 modifier = Modifier.size(SegmentedButtonDefaults.IconSize),
@@ -632,5 +602,21 @@ private fun ThemeCard() {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        content()
     }
 }

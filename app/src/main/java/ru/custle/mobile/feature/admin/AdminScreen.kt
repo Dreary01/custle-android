@@ -1,5 +1,6 @@
 package ru.custle.mobile.feature.admin
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,8 +10,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -37,6 +40,7 @@ import ru.custle.mobile.core.data.AppContainer
 import ru.custle.mobile.core.data.LocalAppContainer
 import ru.custle.mobile.core.model.AdminUserDto
 import ru.custle.mobile.core.model.PermissionDto
+import ru.custle.mobile.core.ui.components.ErrorBanner
 
 data class AdminUiState(
     val isLoading: Boolean = false,
@@ -147,35 +151,42 @@ fun AdminScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Text("Admin", style = MaterialTheme.typography.headlineSmall)
-            Text("Read-only/admin-light inspector для users, permissions и workspace settings.", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Администрирование",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onRefresh) { Text("Обновить") }
-                OutlinedButton(onClick = { tab = "users" }) { Text("Users") }
-                OutlinedButton(onClick = { tab = "settings" }) { Text("Settings") }
-                OutlinedButton(onClick = { tab = "modules" }) { Text("Modules") }
+                OutlinedButton(onClick = { tab = "users" }) { Text("Пользователи") }
+                OutlinedButton(onClick = { tab = "settings" }) { Text("Настройки") }
+                OutlinedButton(onClick = { tab = "modules" }) { Text("Модули") }
             }
         }
         state.errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
-            item { Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            item { ErrorBanner(message) }
         }
         if (tab == "users" && state.selectedUser != null) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                DsCard {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(listOfNotNull(state.selectedUser.firstName, state.selectedUser.lastName).joinToString(" ").ifBlank { state.selectedUser.email }, style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            listOfNotNull(state.selectedUser.firstName, state.selectedUser.lastName).joinToString(" ").ifBlank { state.selectedUser.email },
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
                         Text(
                             listOfNotNull(
                                 state.selectedUser.email,
                                 if (state.selectedUser.isAdmin) "admin" else null,
                                 if (state.selectedUser.isActive) "active" else "inactive",
-                            ).joinToString(" • "),
+                            ).joinToString(" / "),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text("Permissions: ${state.permissions.size}", style = MaterialTheme.typography.titleSmall)
+                        Text("${state.permissions.size} permissions", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                         state.permissions.forEach { perm ->
                             Text(
                                 listOfNotNull(
@@ -183,8 +194,9 @@ fun AdminScreen(
                                     perm.resourceName ?: perm.resourceId,
                                     "actions=${perm.actions}",
                                     if (perm.recursive) "recursive" else null,
-                                ).joinToString(" • "),
+                                ).joinToString(" / "),
                                 style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         OutlinedButton(onClick = onCloseUser) { Text("Свернуть") }
@@ -198,13 +210,17 @@ fun AdminScreen(
                     item { EmptyCard("Пользователей нет") }
                 } else {
                     items(state.users, key = { it.id }) { item ->
-                        Card(modifier = Modifier.fillMaxWidth().clickable { onOpenUser(item.id) }) {
+                        DsCard(modifier = Modifier.clickable { onOpenUser(item.id) }) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(listOfNotNull(item.firstName, item.lastName).joinToString(" ").ifBlank { item.email }, style = MaterialTheme.typography.titleMedium)
                                 Text(
-                                    listOfNotNull(item.email, if (item.isAdmin) "admin" else null, if (item.isActive) "active" else "inactive").joinToString(" • "),
+                                    listOfNotNull(item.firstName, item.lastName).joinToString(" ").ifBlank { item.email },
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    listOfNotNull(item.email, if (item.isAdmin) "admin" else null, if (item.isActive) "active" else "inactive").joinToString(" / "),
                                     style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
                         }
@@ -213,20 +229,20 @@ fun AdminScreen(
             }
             "settings" -> {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    DsCard {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Workspace Settings", style = MaterialTheme.typography.titleMedium)
-                            Text(json.encodeToString(state.settingsJson), style = MaterialTheme.typography.bodySmall)
+                            Text("Настройки workspace", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(json.encodeToString(state.settingsJson), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
             else -> {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    DsCard {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Modules", style = MaterialTheme.typography.titleMedium)
-                            Text(json.encodeToString(state.modulesJson), style = MaterialTheme.typography.bodySmall)
+                            Text("Модули", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(json.encodeToString(state.modulesJson), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -236,8 +252,24 @@ fun AdminScreen(
 }
 
 @Composable
+private fun DsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        content()
+    }
+}
+
+@Composable
 private fun EmptyCard(text: String) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Text(text, modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

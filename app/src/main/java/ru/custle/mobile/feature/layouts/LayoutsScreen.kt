@@ -1,5 +1,6 @@
 package ru.custle.mobile.feature.layouts
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,8 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -34,6 +37,7 @@ import ru.custle.mobile.core.data.AppContainer
 import ru.custle.mobile.core.data.LocalAppContainer
 import ru.custle.mobile.core.model.GridStateDto
 import ru.custle.mobile.core.model.WidgetLayoutDto
+import ru.custle.mobile.core.ui.components.ErrorBanner
 
 data class LayoutsUiState(
     val isLoading: Boolean = false,
@@ -172,27 +176,23 @@ fun LayoutsScreen(
 ) {
     val json = remember { Json { prettyPrint = true } }
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Text("Layouts", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Inspector для widget layouts и grid states с реальными preset-идентификаторами из web-клиента.",
-                style = MaterialTheme.typography.bodyMedium,
+                "Layouts",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
             )
         }
         state.errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
-            item {
-                Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
-            }
+            item { ErrorBanner(message) }
         }
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            DsCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Widget Layouts", style = MaterialTheme.typography.titleMedium)
+                    Text("Widget Layouts", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("dashboard", "object-main", "object-documents", "object-ref-tables", "admin-widgets").forEach {
                             OutlinedButton(onClick = { onLayoutPreset(it) }) { Text(it) }
@@ -201,48 +201,64 @@ fun LayoutsScreen(
                     OutlinedTextField(value = state.pageType, onValueChange = onUpdatePageType, label = { Text("page_type") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                     OutlinedTextField(value = state.objectId, onValueChange = onUpdateObjectId, label = { Text("object_id") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
                     OutlinedTextField(value = state.typeId, onValueChange = onUpdateTypeId, label = { Text("type_id") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    Button(onClick = onLoadLayouts) { Text("Загрузить layouts") }
+                    Button(onClick = onLoadLayouts) { Text("Загрузить") }
                 }
             }
         }
         if (state.layouts.isEmpty() && !state.isLoading) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                DsCard {
                     Text("Layouts не найдены", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else {
             items(state.layouts, key = { it.id }) { item ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                DsCard {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text("${item.pageType} • ${item.scope}", style = MaterialTheme.typography.titleMedium)
+                        Text("${item.pageType} / ${item.scope}", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                         Text(
-                            listOfNotNull(item.objectId, item.typeId).joinToString(" • ").ifBlank { "global match" },
+                            listOfNotNull(item.objectId, item.typeId).joinToString(" / ").ifBlank { "global" },
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(item.layout?.let(json::encodeToString).orEmpty(), style = MaterialTheme.typography.bodySmall)
+                        Text(item.layout?.let(json::encodeToString).orEmpty(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         }
         item {
-            Card(modifier = Modifier.fillMaxWidth()) {
+            DsCard {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Grid State", style = MaterialTheme.typography.titleMedium)
+                    Text("Grid State", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("documents", "admin-users", "admin-object-types", "admin-requisites", "admin-ref-tables").forEach {
                             OutlinedButton(onClick = { onGridPreset(it) }) { Text(it) }
                         }
                     }
                     OutlinedTextField(value = state.gridId, onValueChange = onUpdateGridId, label = { Text("grid_id") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
-                    Button(onClick = onLoadGridState) { Text("Загрузить grid state") }
+                    Button(onClick = onLoadGridState) { Text("Загрузить") }
                     state.gridState?.let { gs ->
-                        Text("Scope: ${gs.scope ?: "none"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                        Text(gs.state?.let(json::encodeToString).orEmpty().ifBlank { "null" }, style = MaterialTheme.typography.bodySmall)
+                        Text("Scope: ${gs.scope ?: "none"}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(gs.state?.let(json::encodeToString).orEmpty().ifBlank { "null" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        content()
     }
 }

@@ -4,11 +4,11 @@ package ru.custle.mobile.feature.doctemplates
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -22,8 +22,8 @@ import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -269,14 +269,14 @@ fun DocTemplatesScreen(
         }
         state.selected?.let { template ->
             item {
-                ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+                DsCard {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(template.name, style = MaterialTheme.typography.titleLarge)
+                        Text(template.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                         val meta = listOfNotNull(
                             template.objectTypeName,
                             template.filePath?.substringAfterLast('/'),
                             template.updatedAt.takeIf { it.isNotBlank() },
-                        ).joinToString(" • ")
+                        ).joinToString(" / ")
                         if (meta.isNotBlank()) {
                             Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -297,14 +297,14 @@ fun DocTemplatesScreen(
                                     enabled = state.generatingTemplateId != template.id,
                                 ) {
                                     Icon(Icons.Outlined.AutoAwesome, contentDescription = null)
-                                    Text(if (state.generatingTemplateId == template.id) "Генерация..." else "Сгенерировать DOCX")
+                                    Text(if (state.generatingTemplateId == template.id) "Генерация..." else "DOCX")
                                 }
                                 OutlinedButton(
                                     onClick = { onGeneratePdf(template) },
                                     enabled = state.generatingTemplateId != template.id,
                                 ) {
                                     Icon(Icons.Outlined.PictureAsPdf, contentDescription = null)
-                                    Text("Сгенерировать PDF")
+                                    Text("PDF")
                                 }
                             }
                             if (state.downloadedTemplateId == template.id && !state.downloadedPath.isNullOrBlank()) {
@@ -323,7 +323,10 @@ fun DocTemplatesScreen(
         }
         if (state.items.isEmpty() && !state.isLoading) {
             item {
-                EmptyTemplatesState()
+                EmptyStateCard(
+                    title = "Шаблонов нет",
+                    message = "Шаблоны документов появятся здесь.",
+                )
             }
         } else {
             items(state.items, key = { it.id }) { item ->
@@ -367,14 +370,14 @@ private fun DocTemplateRow(
     onOpenGenerated: () -> Unit,
     onShareGenerated: () -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth().clickable { onOpen(item.id) }) {
+    DsCard(modifier = Modifier.clickable { onOpen(item.id) }) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(item.name, style = MaterialTheme.typography.titleMedium)
+            Text(item.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
             val meta = listOfNotNull(
                 item.objectTypeName,
                 item.filePath?.substringAfterLast('/'),
                 item.updatedAt.takeIf { it.isNotBlank() },
-            ).joinToString(" • ")
+            ).joinToString(" / ")
             if (meta.isNotBlank()) {
                 Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -406,17 +409,7 @@ private fun DocTemplateRow(
                 }
             }
             if (isSelected) {
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                ) {
-                    Text(
-                        "Открыто выше",
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    )
-                }
+                Text("Выбрано", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -432,14 +425,9 @@ private fun TemplatesHero(
 ) {
     AppHeroCard(
         title = objectName ?: "Шаблоны документов",
-        subtitle = if (canGenerate) {
-            "Выбери шаблон и сразу преврати его в готовый документ по текущему объекту."
-        } else {
-            "Каталог шаблонов в read-first режиме: просмотр, скачивание и быстрый вход в карточку."
-        },
+        subtitle = "$itemsCount шаблонов${if (canGenerate) ", генерация доступна" else ""}",
         chips = buildList {
             add("$itemsCount шаблонов" to Icons.Outlined.AutoAwesome)
-            if (canGenerate) add("Генерация доступна" to Icons.Outlined.PictureAsPdf)
         },
     ) {
         FlowRow(
@@ -461,23 +449,19 @@ private fun TemplatesHero(
 }
 
 @Composable
-private fun EmptyTemplatesState() {
-    EmptyStateCard(
-        title = "Шаблонов пока нет",
-        message = "Когда шаблоны появятся, экран должен вести пользователя к действию: скачать исходник или сразу сгенерировать итоговый файл.",
-    )
-}
-
-@Composable
-private fun TemplateChip(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+private fun DsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
 ) {
-    androidx.compose.material3.AssistChip(
-        onClick = {},
-        label = { Text(label) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
-    )
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        content()
+    }
 }
 
 private fun templateFileName(template: DocTemplateDto): String =

@@ -1,38 +1,36 @@
-@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
-
 package ru.custle.mobile.feature.workspace
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.material.icons.outlined.Key
-import androidx.compose.material.icons.outlined.Workspaces
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.custle.mobile.core.model.WorkspaceDto
-import ru.custle.mobile.core.ui.components.AppHeroCard
-import ru.custle.mobile.core.ui.components.AppSectionCard
-import ru.custle.mobile.core.ui.components.EmptyStateCard
-import ru.custle.mobile.core.ui.components.ErrorBanner
 
 @Composable
 fun WorkspacePickerScreen(
@@ -47,62 +45,109 @@ fun WorkspacePickerScreen(
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            AppHeroCard(
-                title = "Выбор workspace",
-                subtitle = "После входа нужно активировать рабочее пространство. Здесь пользователь должен быстро понять, куда он попадёт дальше, и при необходимости принять приглашение.",
-                chips = listOf(
-                    "${workspaces.size} workspace" to Icons.Outlined.Workspaces,
-                    "Invite token" to Icons.Outlined.Key,
-                ),
+            Text(
+                text = "Рабочие пространства",
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(bottom = 4.dp),
             )
         }
-        item {
-            AppSectionCard(
-                title = "Принять приглашение",
-                hint = "Если нужного workspace нет в списке, можно зайти по invite token.",
-            ) {
-                OutlinedTextField(
-                    value = inviteToken,
-                    onValueChange = { inviteToken = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Invite token") },
-                    singleLine = true,
+
+        if (!errorMessage.isNullOrBlank()) {
+            item {
+                Text(
+                    text = errorMessage,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(vertical = 4.dp),
                 )
-                Button(
-                    onClick = {
-                        onAcceptInvitation(inviteToken)
-                        inviteToken = ""
-                    },
-                    enabled = !isBusy && inviteToken.isNotBlank(),
-                    modifier = Modifier.fillMaxWidth(),
+            }
+        }
+
+        if (isBusy && workspaces.isEmpty()) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Text("Принять приглашение")
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(32.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
         }
-        errorMessage?.takeIf { it.isNotBlank() }?.let {
+
+        if (workspaces.isEmpty() && !isBusy) {
             item {
-                ErrorBanner(it)
+                Text(
+                    text = "Нет доступных пространств",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(vertical = 16.dp),
+                )
             }
         }
-        if (workspaces.isEmpty()) {
-            item {
-                EmptyStateCard(
-                    title = "Доступных workspace пока нет",
-                    message = "Можно принять приглашение по токену выше. Когда список появится, здесь должен быть простой выбор без лишней служебной терминологии.",
-                )
-            }
-        } else {
-            items(workspaces, key = { it.id }) { workspace ->
-                WorkspaceRow(
-                    workspace = workspace,
-                    isBusy = isBusy,
-                    onSelect = onSelect,
-                )
+
+        items(workspaces, key = { it.id }) { workspace ->
+            WorkspaceRow(
+                workspace = workspace,
+                isBusy = isBusy,
+                onSelect = onSelect,
+            )
+        }
+
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = "Приглашение",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+
+                    OutlinedTextField(
+                        value = inviteToken,
+                        onValueChange = { inviteToken = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Токен") },
+                        singleLine = true,
+                    )
+
+                    Button(
+                        onClick = {
+                            onAcceptInvitation(inviteToken.trim())
+                            inviteToken = ""
+                        },
+                        enabled = !isBusy && inviteToken.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        Text("Принять")
+                    }
+                }
             }
         }
     }
@@ -114,33 +159,41 @@ private fun WorkspaceRow(
     isBusy: Boolean,
     onSelect: (String) -> Unit,
 ) {
-    AppSectionCard(
-        title = workspace.name,
-        hint = "Роль: ${workspace.role ?: "member"}",
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !isBusy) { onSelect(workspace.id) },
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(999.dp),
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = workspace.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
                 Text(
                     text = workspace.role ?: "member",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        }
-        Button(
-            onClick = { onSelect(workspace.id) },
-            enabled = !isBusy,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            androidx.compose.material3.Icon(Icons.Outlined.Groups, contentDescription = null)
-            Text("Открыть workspace")
+            Text(
+                text = "→",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

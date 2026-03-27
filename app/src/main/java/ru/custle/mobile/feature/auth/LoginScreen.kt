@@ -1,16 +1,19 @@
 package ru.custle.mobile.feature.auth
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.Key
-import androidx.compose.material.icons.outlined.LockOpen
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -21,12 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import ru.custle.mobile.core.ui.components.AppHeroCard
-import ru.custle.mobile.core.ui.components.AppSectionCard
-import ru.custle.mobile.core.ui.components.ErrorBanner
 
 @Composable
 fun LoginScreen(
@@ -38,65 +39,101 @@ fun LoginScreen(
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        AppHeroCard(
-            title = "Custle Mobile",
-            subtitle = "Входной экран должен сразу объяснять, что это рабочее приложение, а не черновой каркас. Сначала вход, потом workspace, затем основной контур.",
-            chips = listOf(
-                "Email / пароль" to Icons.Outlined.LockOpen,
-                "Яндекс OAuth" to Icons.AutoMirrored.Outlined.Send,
-            ),
-        )
-        AppSectionCard(
-            title = "Вход в приложение",
-            hint = "Обычный логин или вход через Яндекс, если backend уже настроен.",
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = { androidx.compose.material3.Icon(Icons.Outlined.AccountCircle, contentDescription = null) },
-                label = { Text("Email") },
+            Text(
+                text = "Custle",
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.onSurface,
             )
-            OutlinedTextField(
-                value = password,
-                onValueChange = { password = it },
+
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                leadingIcon = { androidx.compose.material3.Icon(Icons.Outlined.Key, contentDescription = null) },
-                label = { Text("Пароль") },
-                visualTransformation = PasswordVisualTransformation(),
-            )
-            if (!errorMessage.isNullOrBlank()) {
-                ErrorBanner(errorMessage)
-            }
-            Button(
-                onClick = { onLogin(email.trim(), password) },
-                enabled = !isBusy && email.isNotBlank() && password.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                ),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
-                if (isBusy) {
-                    CircularProgressIndicator(
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.padding(vertical = 2.dp),
-                        color = MaterialTheme.colorScheme.onPrimary,
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        text = "Вход",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
-                } else {
-                    Text("Войти")
+
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Email") },
+                    )
+
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Пароль") },
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+
+                    if (!errorMessage.isNullOrBlank()) {
+                        Text(
+                            text = errorMessage,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Button(
+                        onClick = { onLogin(email.trim(), password) },
+                        enabled = !isBusy && email.isNotBlank() && password.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    ) {
+                        if (isBusy) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        } else {
+                            Text("Войти")
+                        }
+                    }
+
+                    OutlinedButton(
+                        onClick = onLoginWithYandex,
+                        enabled = !isBusy,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    ) {
+                        Text(
+                            text = "Войти через Яндекс",
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
                 }
-            }
-            OutlinedButton(
-                onClick = onLoginWithYandex,
-                enabled = !isBusy,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Войти через Яндекс")
             }
         }
     }

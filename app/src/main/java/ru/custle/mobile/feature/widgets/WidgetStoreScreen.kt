@@ -1,5 +1,6 @@
 package ru.custle.mobile.feature.widgets
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,8 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -30,6 +33,7 @@ import kotlinx.coroutines.launch
 import ru.custle.mobile.core.data.AppContainer
 import ru.custle.mobile.core.data.LocalAppContainer
 import ru.custle.mobile.core.model.WidgetCatalogDto
+import ru.custle.mobile.core.ui.components.ErrorBanner
 
 data class WidgetStoreUiState(
     val isLoading: Boolean = false,
@@ -133,37 +137,40 @@ fun WidgetStoreScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Text("Widget Store", style = MaterialTheme.typography.headlineSmall)
-            Text("Browse/install/uninstall контур для widget catalog.", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Виджеты",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
         item {
             Button(onClick = onRefresh) { Text("Обновить") }
         }
         state.errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
-            item { Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            item { ErrorBanner(message) }
         }
         if (state.items.isEmpty() && !state.isLoading) {
             item {
-                Card(modifier = Modifier.fillMaxWidth()) {
+                DsCard {
                     Text("Виджеты не найдены", modifier = Modifier.padding(16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         } else {
             items(state.items, key = { it.id }) { item ->
-                Card(modifier = Modifier.fillMaxWidth()) {
+                DsCard {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(item.name, style = MaterialTheme.typography.titleMedium)
+                        Text(item.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                         Text(
                             listOfNotNull(
                                 item.category,
                                 if (item.isPublished) "published" else "draft",
                                 if (item.installed) "installed" else null,
-                            ).joinToString(" • "),
+                            ).joinToString(" / "),
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         item.description?.takeIf { it.isNotBlank() }?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall)
+                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (item.installed) {
@@ -171,14 +178,14 @@ fun WidgetStoreScreen(
                                     onClick = { onUninstall(item.id) },
                                     enabled = state.mutatingWidgetId != item.id,
                                 ) {
-                                    Text(if (state.mutatingWidgetId == item.id) "Удаление..." else "Uninstall")
+                                    Text(if (state.mutatingWidgetId == item.id) "Удаление..." else "Удалить")
                                 }
                             } else {
                                 Button(
                                     onClick = { onInstall(item.id) },
                                     enabled = state.mutatingWidgetId != item.id,
                                 ) {
-                                    Text(if (state.mutatingWidgetId == item.id) "Установка..." else "Install")
+                                    Text(if (state.mutatingWidgetId == item.id) "Установка..." else "Установить")
                                 }
                             }
                         }
@@ -186,5 +193,21 @@ fun WidgetStoreScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun DsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        content()
     }
 }

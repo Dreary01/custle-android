@@ -2,6 +2,7 @@
 
 package ru.custle.mobile.feature.reports
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.FlowRow
@@ -15,9 +16,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Assessment
 import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Button
-import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -142,14 +144,13 @@ fun ReportsScreen(
         item {
             AppHeroCard(
                 title = "Отчёты",
-                subtitle = "Сохранённые отчёты workspace в read-only режиме. Здесь важен быстрый просмотр структуры и вход в нужный отчёт без тяжёлого desktop-builder.",
+                subtitle = "${state.items.size} сохранённых отчётов",
                 chips = listOf(
                     "${state.items.size} отчётов" to Icons.Outlined.Assessment,
-                    "Read-only" to Icons.Outlined.Tune,
                 ),
             ) {
                 Button(onClick = onRefresh) {
-                    androidx.compose.material3.Icon(Icons.Outlined.Refresh, contentDescription = null)
+                    Icon(Icons.Outlined.Refresh, contentDescription = null)
                     Text("Обновить")
                 }
             }
@@ -165,8 +166,8 @@ fun ReportsScreen(
         if (state.items.isEmpty() && !state.isLoading) {
             item {
                 EmptyStateCard(
-                    title = "Сохранённых отчётов пока нет",
-                    message = "Когда отчёты появятся, экран должен помочь быстро понять, какой из них открывать, а не показывать голый список идентификаторов.",
+                    title = "Отчётов нет",
+                    message = "Сохранённые отчёты появятся здесь.",
                 )
             }
         } else {
@@ -182,31 +183,31 @@ private fun ReportDetailCard(
     report: ReportDto,
     onClose: () -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(report.name, style = MaterialTheme.typography.titleLarge)
+            Text(report.name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             Text(
                 listOfNotNull(
                     "sort ${report.sortOrder}",
                     report.updatedAt.takeIf { it.isNotBlank() },
                     report.createdAt.takeIf { it.isNotBlank() },
-                ).joinToString(" • "),
+                ).joinToString(" / "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             report.config?.let { config ->
                 Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
                     Column(
                         modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
-                        Text("Config", style = MaterialTheme.typography.titleSmall)
+                        Text("Config", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                         Text(
                             text = reportsJson.encodeToString(config),
                             style = MaterialTheme.typography.bodySmall,
@@ -228,11 +229,7 @@ private fun ReportRow(
     isSelected: Boolean,
     onOpen: (String) -> Unit,
 ) {
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onOpen(item.id) },
-    ) {
+    DsCard(modifier = Modifier.clickable { onOpen(item.id) }) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -240,6 +237,7 @@ private fun ReportRow(
             Text(
                 item.name,
                 style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -249,7 +247,7 @@ private fun ReportRow(
             ) {
                 MetaPill("sort ${item.sortOrder}")
                 item.updatedAt.takeIf { it.isNotBlank() }?.let { MetaPill(it) }
-                if (isSelected) MetaPill("Открыто выше")
+                if (isSelected) MetaPill("Выбрано")
             }
         }
     }
@@ -259,13 +257,29 @@ private fun ReportRow(
 private fun MetaPill(label: String) {
     Surface(
         shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Text(
             text = label,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun DsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        content()
     }
 }

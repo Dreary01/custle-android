@@ -2,6 +2,7 @@
 
 package ru.custle.mobile.feature.discussions
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ColumnScope
@@ -24,8 +25,8 @@ import androidx.compose.material.icons.outlined.SubdirectoryArrowRight
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -41,7 +42,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -130,7 +130,7 @@ fun DiscussionsScreen(
     if (confirmDeleteDiscussion && state.selectedDiscussion != null) {
         DestructiveConfirmDialog(
             title = "Удалить тему?",
-            message = "Тема \"${state.selectedDiscussion.title}\" исчезнет вместе с текущим контекстом разговора.",
+            message = "Тема \"${state.selectedDiscussion.title}\" будет удалена.",
             isBusy = state.mutatingDiscussionId == state.selectedDiscussion.id,
             onConfirm = {
                 onDeleteDiscussion()
@@ -143,7 +143,7 @@ fun DiscussionsScreen(
     confirmDeleteMessage?.let { message ->
         DestructiveConfirmDialog(
             title = "Удалить сообщение?",
-            message = "Сообщение \"${message.content.take(120)}\" будет удалено из обсуждения.",
+            message = "Сообщение \"${message.content.take(120)}\" будет удалено.",
             isBusy = state.mutatingMessageId == message.id,
             onConfirm = {
                 onDeleteMessage(message.id)
@@ -185,8 +185,8 @@ fun DiscussionsScreen(
             if (state.discussions.isEmpty() && !state.isLoading) {
                 item {
                     EmptyStateCard(
-                        title = "Обсуждений пока нет",
-                        message = "Создай первую тему, чтобы начать рабочий разговор по объекту.",
+                        title = "Обсуждений нет",
+                        message = "Создайте первую тему.",
                     )
                 }
             } else {
@@ -208,7 +208,7 @@ fun DiscussionsScreen(
             }
             if (state.nestedDiscussions.isNotEmpty()) {
                 item {
-                    SectionBlock(title = "Вложенные темы", hint = "Подразговоры внутри текущей дискуссии") {
+                    SectionBlock(title = "Вложенные темы") {
                         state.nestedDiscussions.forEach { nested ->
                             DiscussionRow(item = nested, onOpen = onOpenDiscussion)
                         }
@@ -218,8 +218,8 @@ fun DiscussionsScreen(
             if (state.messages.isEmpty() && !state.isLoadingMessages) {
                 item {
                     EmptyStateCard(
-                        title = "Сообщений пока нет",
-                        message = "Начни обсуждение первым сообщением ниже.",
+                        title = "Сообщений нет",
+                        message = "Начните обсуждение.",
                     )
                 }
             } else {
@@ -265,16 +265,12 @@ private fun DiscussionsHero(
 ) {
     AppHeroCard(
         title = if (selectedDiscussion == null) objectName.ifBlank { "Обсуждения" } else selectedDiscussion.title,
-        subtitle = if (selectedDiscussion == null) {
-            "Темы и рабочие разговоры по объекту. Здесь важно быстро понять, где активность и куда входить."
-        } else {
-            "Внутри темы доступны ответы, mentions, requests и вложенные обсуждения."
-        },
+        subtitle = if (selectedDiscussion == null) "$discussionsCount тем" else "Ответы и вложенные темы",
         chips = buildList {
             add("$discussionsCount тем" to Icons.Outlined.Forum)
             selectedDiscussion?.let {
-                if (it.isClosed) add("Тема закрыта" to Icons.Outlined.TaskAlt)
-                else add("${it.unreadCount} unread" to Icons.Outlined.MarkChatUnread)
+                if (it.isClosed) add("Закрыта" to Icons.Outlined.TaskAlt)
+                else add("${it.unreadCount} непрочитано" to Icons.Outlined.MarkChatUnread)
             }
         },
     ) {
@@ -296,10 +292,7 @@ private fun NewDiscussionCard(
     onTitleChange: (String) -> Unit,
     onCreate: () -> Unit,
 ) {
-    AppSectionCard(
-        title = "Новая тема",
-        hint = "Создай отдельную ветку вместо смешивания разных разговоров",
-    ) {
+    AppSectionCard(title = "Новая тема") {
         OutlinedTextField(
             value = title,
             onValueChange = onTitleChange,
@@ -323,15 +316,12 @@ private fun DiscussionHeaderCard(
     onToggleClosed: () -> Unit,
     onDelete: () -> Unit,
 ) {
-    AppSectionCard(
-        title = "Управление темой",
-        hint = "Минимум действий, только реально полезные операции",
-    ) {
+    AppSectionCard(title = "Управление темой") {
         OutlinedTextField(
             value = draftTitle,
             onValueChange = onTitleChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Название темы") },
+            label = { Text("Название") },
             enabled = !isMutating,
             singleLine = true,
         )
@@ -339,7 +329,7 @@ private fun DiscussionHeaderCard(
             discussion.authorName.takeIf { it.isNotBlank() },
             discussion.lastMessageAt,
             if (discussion.isClosed) "Закрыта" else "Открыта",
-        ).joinToString(" • ")
+        ).joinToString(" / ")
         if (meta.isNotBlank()) {
             Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -368,11 +358,7 @@ private fun DiscussionRow(
     item: DiscussionDto,
     onOpen: (String) -> Unit,
 ) {
-    ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onOpen(item.id) },
-    ) {
+    DsCard(modifier = Modifier.clickable { onOpen(item.id) }) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -380,6 +366,7 @@ private fun DiscussionRow(
             Text(
                 item.title,
                 style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -387,7 +374,7 @@ private fun DiscussionRow(
                 item.kind.takeIf { it.isNotBlank() },
                 item.authorName.takeIf { it.isNotBlank() },
                 item.lastMessageAt,
-            ).joinToString(" • ")
+            ).joinToString(" / ")
             if (meta.isNotBlank()) {
                 Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -395,9 +382,9 @@ private fun DiscussionRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                StatusBadge("Сообщений ${item.messageCount}")
+                StatusBadge("${item.messageCount} сообщ.")
                 if (item.unreadCount > 0) {
-                    StatusBadge("Непрочитано ${item.unreadCount}")
+                    StatusBadge("${item.unreadCount} непрочитано")
                 }
                 if (item.isClosed) {
                     StatusBadge("Закрыта")
@@ -422,13 +409,13 @@ private fun MessageRow(
     var isCreatingNested by remember(item.id) { mutableStateOf(false) }
     var nestedTitle by remember(item.id) { mutableStateOf("") }
 
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Text(
-                listOfNotNull(item.authorName.takeIf { it.isNotBlank() }, item.createdAt.takeIf { it.isNotBlank() }).joinToString(" • "),
+                listOfNotNull(item.authorName.takeIf { it.isNotBlank() }, item.createdAt.takeIf { it.isNotBlank() }).joinToString(" / "),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -461,10 +448,10 @@ private fun MessageRow(
                     }
                 }
             } else {
-                Text(item.content, style = MaterialTheme.typography.bodyMedium)
+                Text(item.content, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
             }
             if (item.mentions.isNotEmpty()) {
-                val mentionText = item.mentions.joinToString(" • ") { mention ->
+                val mentionText = item.mentions.joinToString(" / ") { mention ->
                     buildString {
                         append("@")
                         append(mention.userName.ifBlank { mention.mentionedUserId }.trim())
@@ -481,20 +468,21 @@ private fun MessageRow(
             item.nestedDiscTitle?.takeIf { it.isNotBlank() }?.let { nested ->
                 Surface(
                     modifier = Modifier.clickable { item.nestedDiscId?.let(onOpenNestedDiscussion) },
-                    shape = RoundedCornerShape(18.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
                     Text(
-                        text = "Вложенное обсуждение: $nested (${item.nestedDiscMsgCount})",
+                        text = "$nested (${item.nestedDiscMsgCount})",
                         modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
             if (isCreatingNested) {
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
                 ) {
                     Column(
                         modifier = Modifier.padding(14.dp),
@@ -505,7 +493,7 @@ private fun MessageRow(
                             onValueChange = { nestedTitle = it },
                             modifier = Modifier.fillMaxWidth(),
                             enabled = !isMutating,
-                            label = { Text("Название вложенной темы") },
+                            label = { Text("Название подтемы") },
                             singleLine = true,
                         )
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -517,7 +505,7 @@ private fun MessageRow(
                                 },
                                 enabled = !isMutating && nestedTitle.isNotBlank(),
                             ) {
-                                Text(if (isMutating) "Создание..." else "Создать подтему")
+                                Text(if (isMutating) "Создание..." else "Создать")
                             }
                             OutlinedButton(
                                 onClick = {
@@ -584,12 +572,12 @@ private fun ReplyComposer(
     onSetSendAsRequest: (Boolean) -> Unit,
     onSend: () -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            SectionTitle("Быстрый ответ", "Короткое сообщение, mention и request в одном месте")
+            Text("Ответ", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
             OutlinedTextField(
                 value = reply,
                 onValueChange = onReplyChange,
@@ -603,7 +591,7 @@ private fun ReplyComposer(
                 ) {
                     AssistChip(
                         onClick = { onSelectMentionUser(null) },
-                        label = { Text(if (selectedMentionUserId == null) "Без mention" else "Сбросить mention") },
+                        label = { Text(if (selectedMentionUserId == null) "Без mention" else "Сбросить") },
                     )
                     workspaceMembers.take(4).forEach { member ->
                         val label = listOfNotNull(member.firstName, member.lastName).joinToString(" ").ifBlank { member.email }
@@ -616,7 +604,7 @@ private fun ReplyComposer(
                 if (selectedMentionUserId != null) {
                     AssistChip(
                         onClick = { onSetSendAsRequest(!sendAsRequest) },
-                        label = { Text(if (sendAsRequest) "Request включён" else "Request выключен") },
+                        label = { Text(if (sendAsRequest) "Request вкл." else "Request выкл.") },
                         leadingIcon = { Icon(Icons.Outlined.TaskAlt, contentDescription = null) },
                     )
                 }
@@ -626,7 +614,7 @@ private fun ReplyComposer(
                 enabled = reply.isNotBlank() && !isClosed,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(if (isClosed) "Тема закрыта" else "Отправить сообщение")
+                Text(if (isClosed) "Тема закрыта" else "Отправить")
             }
         }
     }
@@ -635,15 +623,14 @@ private fun ReplyComposer(
 @Composable
 private fun SectionBlock(
     title: String,
-    hint: String,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
+    DsCard {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
             content = {
-                SectionTitle(title, hint)
+                Text(title, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                 content()
             },
         )
@@ -651,55 +638,32 @@ private fun SectionBlock(
 }
 
 @Composable
-private fun SectionTitle(
-    title: String,
-    hint: String,
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
-        Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}
-
-@Composable
-private fun EmptyBlock(
-    title: String,
-    hint: String,
-) {
-    ElevatedCard(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(hint, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-private fun DiscussionMetaChip(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-) {
-    AssistChip(
-        onClick = {},
-        label = { Text(label) },
-        leadingIcon = { Icon(icon, contentDescription = null) },
-    )
-}
-
-@Composable
 private fun StatusBadge(label: String) {
     Surface(
         shape = RoundedCornerShape(999.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color = MaterialTheme.colorScheme.surfaceVariant,
     ) {
         Text(
             text = label,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun DsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        content()
     }
 }

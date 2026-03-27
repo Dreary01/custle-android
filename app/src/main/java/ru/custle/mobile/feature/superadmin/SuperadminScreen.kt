@@ -1,5 +1,6 @@
 package ru.custle.mobile.feature.superadmin
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -8,8 +9,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -37,6 +40,7 @@ import ru.custle.mobile.core.data.SuperadminBundle
 import ru.custle.mobile.core.model.SuperadminStatsDto
 import ru.custle.mobile.core.model.SuperadminUserDto
 import ru.custle.mobile.core.model.SuperadminWorkspaceDto
+import ru.custle.mobile.core.ui.components.ErrorBanner
 
 data class SuperadminUiState(
     val isLoading: Boolean = false,
@@ -117,71 +121,81 @@ fun SuperadminScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            Text("Superadmin", style = MaterialTheme.typography.headlineSmall)
-            Text("Read-only inspector для platform stats, workspaces, users и global settings.", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "Суперадмин",
+                style = MaterialTheme.typography.headlineSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Button(onClick = onRefresh) { Text("Обновить") }
-                OutlinedButton(onClick = { tab = "stats" }) { Text("Stats") }
-                OutlinedButton(onClick = { tab = "workspaces" }) { Text("Workspaces") }
-                OutlinedButton(onClick = { tab = "users" }) { Text("Users") }
-                OutlinedButton(onClick = { tab = "settings" }) { Text("Settings") }
+                OutlinedButton(onClick = { tab = "stats" }) { Text("Статистика") }
+                OutlinedButton(onClick = { tab = "workspaces" }) { Text("Workspace") }
+                OutlinedButton(onClick = { tab = "users" }) { Text("Пользователи") }
+                OutlinedButton(onClick = { tab = "settings" }) { Text("Настройки") }
             }
         }
         state.errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
-            item { Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            item { ErrorBanner(message) }
         }
         when (tab) {
             "stats" -> {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    DsCard {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("Platform Stats", style = MaterialTheme.typography.titleMedium)
-                            Text("Workspaces: ${state.stats.totalWorkspaces} total / ${state.stats.activeWorkspaces} active", style = MaterialTheme.typography.bodySmall)
-                            Text("Users: ${state.stats.totalUsers} total / ${state.stats.newUsers7d} new 7d", style = MaterialTheme.typography.bodySmall)
-                            Text("Objects: ${state.stats.totalObjects}", style = MaterialTheme.typography.bodySmall)
-                            Text("Ref tables: ${state.stats.totalRefTables}, ref records: ${state.stats.totalRefRecords}", style = MaterialTheme.typography.bodySmall)
-                            Text("New workspaces 7d: ${state.stats.newWorkspaces7d}", style = MaterialTheme.typography.bodySmall)
+                            Text("Статистика платформы", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                            StatLine("Workspaces", "${state.stats.totalWorkspaces} / ${state.stats.activeWorkspaces} active")
+                            StatLine("Пользователи", "${state.stats.totalUsers} / ${state.stats.newUsers7d} new 7d")
+                            StatLine("Объекты", "${state.stats.totalObjects}")
+                            StatLine("Справочники", "${state.stats.totalRefTables} / ${state.stats.totalRefRecords} записей")
+                            StatLine("Новые ws 7d", "${state.stats.newWorkspaces7d}")
                         }
                     }
                 }
             }
             "workspaces" -> {
                 items(state.workspaces, key = { it.id }) { item ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    DsCard {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(item.name, style = MaterialTheme.typography.titleMedium)
+                            Text(item.name, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                             Text(
                                 listOfNotNull(
                                     item.slug,
                                     item.ownerEmail,
                                     if (item.isSystem) "system" else null,
                                     if (item.isActive) "active" else "inactive",
-                                ).joinToString(" • "),
+                                ).joinToString(" / "),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Text("members=${item.memberCount} • objects=${item.objectCount} • docs=${item.docCount}", style = MaterialTheme.typography.bodySmall)
-                            Text("doc bytes=${item.docSizeBytes}", style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "members=${item.memberCount} / objects=${item.objectCount} / docs=${item.docCount}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
             }
             "users" -> {
                 items(state.users, key = { it.id }) { item ->
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    DsCard {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(listOf(item.firstName, item.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { item.email }, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                listOf(item.firstName, item.lastName).filter { it.isNotBlank() }.joinToString(" ").ifBlank { item.email },
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
                             Text(
                                 listOfNotNull(
                                     item.email,
                                     if (item.isSuperAdmin) "superadmin" else null,
                                     if (item.isActive) "active" else "inactive",
-                                    "workspaces=${item.workspaceCount}",
-                                ).joinToString(" • "),
+                                    "ws=${item.workspaceCount}",
+                                ).joinToString(" / "),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                     }
@@ -189,14 +203,39 @@ fun SuperadminScreen(
             }
             else -> {
                 item {
-                    Card(modifier = Modifier.fillMaxWidth()) {
+                    DsCard {
                         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Global Settings", style = MaterialTheme.typography.titleMedium)
-                            Text(json.encodeToString(state.settingsJson), style = MaterialTheme.typography.bodySmall)
+                            Text("Глобальные настройки", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(json.encodeToString(state.settingsJson), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun DsCard(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun StatLine(label: String, value: String) {
+    Text(
+        "$label: $value",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }

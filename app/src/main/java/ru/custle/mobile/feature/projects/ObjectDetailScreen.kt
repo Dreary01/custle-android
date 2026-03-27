@@ -25,17 +25,15 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Forum
 import androidx.compose.material.icons.outlined.LibraryAddCheck
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.PersonAddAlt
 import androidx.compose.material.icons.outlined.TaskAlt
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -47,22 +45,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import ru.custle.mobile.core.model.ObjectDetailBundle
 import ru.custle.mobile.core.model.ParticipantDto
 import ru.custle.mobile.core.model.WorkspaceMemberDto
-import ru.custle.mobile.core.ui.components.EmptyStateCard
-import ru.custle.mobile.core.ui.theme.Brick300
-import ru.custle.mobile.core.ui.theme.Brick600
-import ru.custle.mobile.core.ui.theme.Green900
-import ru.custle.mobile.core.ui.theme.Sand050
-import ru.custle.mobile.core.ui.theme.Sand100
-import ru.custle.mobile.core.ui.theme.Sand200
-import ru.custle.mobile.core.ui.theme.Sand700
 
 @Composable
 fun ObjectDetailScreen(
@@ -83,10 +71,10 @@ fun ObjectDetailScreen(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
-            ObjectHero(
+            ObjectHeader(
                 bundle = bundle,
                 onBack = onBack,
                 onOpenDocuments = onOpenDocuments,
@@ -97,24 +85,10 @@ fun ObjectDetailScreen(
                 },
             )
         }
-        item { OverviewCard(bundle = bundle) }
+        item { OverviewSection(bundle = bundle) }
+        item { PlansSection(bundle = bundle) }
         item {
-            DetailPanel(
-                marker = "PLANS",
-                title = "Планы",
-                hint = "Плановые интервалы и длительности объекта.",
-                accent = Green900.copy(alpha = 0.10f),
-            ) {
-                DetailLines(
-                    lines = bundle.plans.map {
-                        listOfNotNull(it.planType, it.startDate, it.endDate, it.durationDays?.let { d -> "$d дн" })
-                            .joinToString(" • ")
-                    }.ifEmpty { listOf("Плановые данные пока не заполнены.") },
-                )
-            }
-        }
-        item {
-            ParticipantsCard(
+            ParticipantsSection(
                 participants = bundle.participants,
                 workspaceMembers = workspaceMembers,
                 isSaving = isSavingParticipants,
@@ -123,30 +97,12 @@ fun ObjectDetailScreen(
                 onRemoveParticipant = onRemoveParticipant,
             )
         }
-        item {
-            DetailPanel(
-                marker = "DEPENDENCIES",
-                title = "Зависимости",
-                hint = "Что блокирует или продолжает объект.",
-                accent = Brick300.copy(alpha = 0.24f),
-            ) {
-                DetailLines(
-                    lines = bundle.dependencies.map {
-                        "${it.type}: ${it.predecessorId} -> ${it.successorId} (lag ${it.lagDays})"
-                    }.ifEmpty { listOf("Зависимостей нет.") },
-                )
-            }
-        }
+        item { DependenciesSection(bundle = bundle) }
         if (bundle.detail.children.isNotEmpty()) {
             item {
-                DetailPanel(
-                    marker = "CHILD OBJECTS",
-                    title = "Дочерние объекты",
-                    hint = "Продолжение структуры внутри текущего объекта.",
-                    accent = Green900.copy(alpha = 0.08f),
-                ) {
+                SectionCard(title = "Дочерние объекты") {
                     bundle.detail.children.forEach { child ->
-                        ChildObjectCard(child = child, onOpenChildObject = onOpenChildObject)
+                        ChildObjectRow(child = child, onOpenChildObject = onOpenChildObject)
                     }
                 }
             }
@@ -155,7 +111,7 @@ fun ObjectDetailScreen(
 }
 
 @Composable
-private fun ObjectHero(
+private fun ObjectHeader(
     bundle: ObjectDetailBundle,
     onBack: () -> Unit,
     onOpenDocuments: () -> Unit,
@@ -163,165 +119,142 @@ private fun ObjectHero(
     onOpenTemplates: () -> Unit,
     onCreateTodo: () -> Unit,
 ) {
-    val crumbs = bundle.ancestors.joinToString(" / ") { it.name }
-    val summary = listOfNotNull(
-        bundle.detail.typeName ?: bundle.detail.typeId,
-        bundle.detail.status,
-        bundle.detail.assigneeName,
-    ).joinToString(" • ")
-
-    ElevatedCard(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.elevatedCardColors(containerColor = Sand050),
-        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 4.dp),
+    Column(
+        modifier = Modifier.padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = Color.Transparent,
-                border = BorderStroke(1.dp, Sand200.copy(alpha = 0.22f)),
-            ) {
-                Column(
-                    modifier = Modifier
-                        .background(
-                            brush = Brush.verticalGradient(
-                                listOf(
-                                    Green900,
-                                    Green900.copy(alpha = 0.95f),
-                                    Sand700,
-                                ),
-                            ),
-                            shape = RoundedCornerShape(24.dp),
-                        )
-                        .padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Surface(
-                        shape = RoundedCornerShape(999.dp),
-                        color = Sand050.copy(alpha = 0.12f),
-                    ) {
-                        Text(
-                            "OBJECT PROFILE",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = Sand100,
-                        )
-                    }
-                    Text(
-                        bundle.detail.name,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = Sand050,
-                    )
-                    val heroText = listOfNotNull(
-                        crumbs.takeIf { it.isNotBlank() },
-                        summary.takeIf { it.isNotBlank() },
-                    ).joinToString("\n")
-                    if (heroText.isNotBlank()) {
-                        Text(
-                            heroText,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = Sand200,
-                        )
-                    }
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    bundle.detail.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val typeName = bundle.detail.typeName ?: bundle.detail.typeId
+                    Badge(typeName)
+                    Badge(bundle.detail.status)
                 }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                DetailMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = "${bundle.detail.progress}%",
-                    label = "Прогресс",
-                    accent = Green900.copy(alpha = 0.12f),
-                )
-                DetailMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = bundle.detail.priority.takeIf { it > 0 }?.toString() ?: "0",
-                    label = "Приоритет",
-                    accent = Brick300.copy(alpha = 0.45f),
-                )
-                DetailMetricCard(
-                    modifier = Modifier.weight(1f),
-                    value = bundle.detail.children.size.toString(),
-                    label = "Дочерние",
-                    accent = Sand200,
-                )
-            }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                OutlinedButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = null)
-                    Text("К дереву")
-                }
-                ExecutiveActionChip("Документы", Icons.Outlined.Description, onOpenDocuments)
-                ExecutiveActionChip("Обсуждения", Icons.Outlined.Forum, onOpenDiscussions)
-                ExecutiveActionChip("Генерация", Icons.Outlined.LibraryAddCheck, onOpenTemplates)
-                ExecutiveActionChip("Задача", Icons.Outlined.TaskAlt, onCreateTodo)
-            }
         }
-    }
-}
-
-@Composable
-private fun DetailMetricCard(
-    value: String,
-    label: String,
-    accent: Color,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(20.dp),
-        color = accent,
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        val crumbs = bundle.ancestors.joinToString(" / ") { it.name }
+        if (crumbs.isNotBlank()) {
+            Text(
+                crumbs,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Text(value, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-            Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            MetricChip("${bundle.detail.progress}%")
+            bundle.detail.priority.takeIf { it > 0 }?.let { MetricChip("P$it") }
+            MetricChip("${bundle.detail.children.size} дч.")
         }
-    }
-}
-
-@Composable
-private fun OverviewCard(
-    bundle: ObjectDetailBundle,
-) {
-    DetailPanel(
-        marker = "OVERVIEW",
-        title = "Обзор объекта",
-        hint = "Ключевые атрибуты без перегрузки вторичными действиями.",
-        accent = Green900.copy(alpha = 0.10f),
-    ) {
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            KeyBadge("Прогресс ${bundle.detail.progress}%")
-            bundle.detail.priority.takeIf { it > 0 }?.let { KeyBadge("Приоритет $it") }
-            bundle.detail.ownerName?.takeIf { it.isNotBlank() }?.let { KeyBadge("Owner $it") }
-            bundle.detail.assigneeName?.takeIf { it.isNotBlank() }?.let { KeyBadge("Исполнитель $it") }
+            ActionChip("Документы", Icons.Outlined.Description, onOpenDocuments)
+            ActionChip("Обсуждения", Icons.Outlined.Forum, onOpenDiscussions)
+            ActionChip("Генерация", Icons.Outlined.LibraryAddCheck, onOpenTemplates)
+            ActionChip("Задача", Icons.Outlined.TaskAlt, onCreateTodo)
         }
-        FactsGrid(
-            facts = listOfNotNull(
-                bundle.detail.actualStartDate?.let { "Факт старт: $it" },
-                bundle.detail.actualEndDate?.let { "Факт завершение: $it" },
-            ),
+    }
+}
+
+@Composable
+private fun Badge(label: String) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
         )
-        bundle.detail.description?.takeIf { it.isNotBlank() }?.let { description ->
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = Sand100,
-            ) {
+    }
+}
+
+@Composable
+private fun MetricChip(label: String) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+    ) {
+        Text(
+            label,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun OverviewSection(bundle: ObjectDetailBundle) {
+    SectionCard(title = "Обзор") {
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Badge("Прогресс ${bundle.detail.progress}%")
+            bundle.detail.priority.takeIf { it > 0 }?.let { Badge("Приоритет $it") }
+            bundle.detail.ownerName?.takeIf { it.isNotBlank() }?.let { Badge(it) }
+            bundle.detail.assigneeName?.takeIf { it.isNotBlank() }?.let { Badge(it) }
+        }
+        val facts = listOfNotNull(
+            bundle.detail.actualStartDate?.let { "Факт старт: $it" },
+            bundle.detail.actualEndDate?.let { "Факт завершение: $it" },
+        )
+        facts.forEach { fact ->
+            Text(
+                fact,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        bundle.detail.description?.takeIf { it.isNotBlank() }?.let { desc ->
+            Text(
+                desc,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
+}
+
+@Composable
+private fun PlansSection(bundle: ObjectDetailBundle) {
+    SectionCard(title = "Планы") {
+        val lines = bundle.plans.map {
+            listOfNotNull(it.planType, it.startDate, it.endDate, it.durationDays?.let { d -> "$d дн" })
+                .joinToString(" / ")
+        }
+        if (lines.isEmpty()) {
+            Text(
+                "Нет данных",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            lines.forEach { line ->
                 Text(
-                    text = description,
-                    modifier = Modifier.padding(14.dp),
-                    style = MaterialTheme.typography.bodyMedium,
+                    line,
+                    style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
             }
@@ -330,25 +263,31 @@ private fun OverviewCard(
 }
 
 @Composable
-private fun DetailLines(
-    lines: List<String>,
-) {
-    lines.forEach { line ->
-        Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = Sand100,
-        ) {
+private fun DependenciesSection(bundle: ObjectDetailBundle) {
+    SectionCard(title = "Зависимости") {
+        val lines = bundle.dependencies.map {
+            "${it.type}: ${it.predecessorId} -> ${it.successorId} (lag ${it.lagDays})"
+        }
+        if (lines.isEmpty()) {
             Text(
-                text = line,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                "Нет зависимостей",
                 style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        } else {
+            lines.forEach { line ->
+                Text(
+                    line,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun ParticipantsCard(
+private fun ParticipantsSection(
     participants: List<ParticipantDto>,
     workspaceMembers: List<WorkspaceMemberDto>,
     isSaving: Boolean,
@@ -361,14 +300,13 @@ private fun ParticipantsCard(
     val existingIds = participants.map { it.userId }.toSet()
     val availableMembers = workspaceMembers.filter { it.id !in existingIds }
 
-    DetailPanel(
-        marker = "PARTICIPANTS",
-        title = "Участники",
-        hint = "Кто вовлечён в работу по объекту.",
-        accent = Sand200.copy(alpha = 0.65f),
-    ) {
+    SectionCard(title = "Участники") {
         if (participants.isEmpty()) {
-            EmptyInlineState("У объекта пока нет участников.")
+            Text(
+                "Нет участников",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         } else {
             participants.forEach { participant ->
                 ParticipantRow(
@@ -380,24 +318,34 @@ private fun ParticipantsCard(
             }
         }
         if (workspaceMembers.isNotEmpty()) {
-            Surface(
-                shape = RoundedCornerShape(22.dp),
-                color = Sand100,
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Outlined.PersonAddAlt, contentDescription = null, tint = Green900)
-                        Text("Добавить участника", style = MaterialTheme.typography.titleSmall)
+                        Icon(
+                            Icons.Outlined.PersonAddAlt,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            "Добавить участника",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
                     }
                     if (availableMembers.isEmpty()) {
                         Text(
-                            "Все участники workspace уже добавлены.",
+                            "Все добавлены",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -408,7 +356,6 @@ private fun ParticipantsCard(
                             onSelect = { selectedUserId = it },
                         )
                         RolePicker(
-                            label = "Роль в объекте",
                             currentRole = newRole,
                             onSelect = { newRole = it },
                         )
@@ -421,7 +368,7 @@ private fun ParticipantsCard(
                             enabled = selectedUserId.isNotBlank() && !isSaving,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(if (isSaving) "Сохранение..." else "Добавить участника")
+                            Text(if (isSaving) "..." else "Добавить")
                         }
                     }
                 }
@@ -439,37 +386,27 @@ private fun ParticipantRow(
 ) {
     var role by remember(participant.userId, participant.role) { mutableStateOf(participant.role) }
 
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Sand100,
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = Green900.copy(alpha = 0.08f),
-            ) {
-                Text(
-                    "PARTICIPANT",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Green900,
-                )
-            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
-                ) {
-                    Text(participant.userName, style = MaterialTheme.typography.titleSmall)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        participant.userName,
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                     Text(
                         participant.userEmail,
                         style = MaterialTheme.typography.bodySmall,
@@ -480,20 +417,22 @@ private fun ParticipantRow(
                     onClick = { onRemoveParticipant(participant.userId) },
                     enabled = !isSaving,
                 ) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Удалить")
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
-            RolePicker(
-                label = "Роль",
-                currentRole = role,
-                onSelect = { role = it },
-            )
-            Button(
-                onClick = { onUpdateParticipantRole(participant.userId, role) },
-                enabled = role.isNotBlank() && role != participant.role && !isSaving,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(if (isSaving) "Сохранение..." else "Сохранить роль")
+            RolePicker(currentRole = role, onSelect = { role = it })
+            if (role != participant.role) {
+                Button(
+                    onClick = { onUpdateParticipantRole(participant.userId, role) },
+                    enabled = !isSaving,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(if (isSaving) "..." else "Сохранить роль")
+                }
             }
         }
     }
@@ -512,34 +451,42 @@ private fun MemberPicker(
             listOfNotNull(it.firstName, it.lastName).joinToString(" ").contains(query, ignoreCase = true)
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text("Поиск по участникам workspace") },
+            label = { Text("Поиск") },
             singleLine = true,
         )
         if (selected != null) {
             Text(
-                "Выбран: ${memberLabel(selected)}",
+                memberLabel(selected),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = MaterialTheme.colorScheme.primary,
             )
         }
-        filtered.take(6).forEach { member ->
+        filtered.take(5).forEach { member ->
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onSelect(member.id) },
-                shape = RoundedCornerShape(18.dp),
-                color = Sand050,
+                shape = RoundedCornerShape(8.dp),
+                color = if (member.id == selectedUserId) {
+                    MaterialTheme.colorScheme.primaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
             ) {
                 Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
-                    Text(memberLabel(member), style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        memberLabel(member),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
                     Text(
                         member.email,
                         style = MaterialTheme.typography.bodySmall,
@@ -553,123 +500,78 @@ private fun MemberPicker(
 
 @Composable
 private fun RolePicker(
-    label: String,
     currentRole: String,
     onSelect: (String) -> Unit,
 ) {
     val options = listOf("member", "manager", "executor", "observer")
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            options.forEach { option ->
-                AssistChip(
-                    onClick = { onSelect(option) },
-                    label = {
-                        Text(if (currentRole == option) option.replaceFirstChar(Char::uppercase) else option)
-                    },
-                    leadingIcon = if (currentRole == option) {
-                        {
-                            Box(
-                                modifier = Modifier
-                                    .size(10.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
-                            )
-                        }
-                    } else {
-                        null
-                    },
-                )
-            }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        options.forEach { option ->
+            AssistChip(
+                onClick = { onSelect(option) },
+                label = {
+                    Text(option.replaceFirstChar(Char::uppercase))
+                },
+                leadingIcon = if (currentRole == option) {
+                    {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary),
+                        )
+                    }
+                } else {
+                    null
+                },
+            )
         }
     }
 }
 
 @Composable
-private fun ChildObjectCard(
+private fun ChildObjectRow(
     child: ru.custle.mobile.core.model.ObjectNodeDto,
     onOpenChildObject: (String) -> Unit,
 ) {
-    ElevatedCard(
+    Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onOpenChildObject(child.id) },
-        colors = CardDefaults.elevatedCardColors(containerColor = Sand050),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Surface(
-                shape = RoundedCornerShape(999.dp),
-                color = Green900.copy(alpha = 0.08f),
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "CHILD OBJECT",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Green900,
+                    child.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
-            }
-            Text(
-                child.name,
-                style = MaterialTheme.typography.titleMedium,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            val meta = listOfNotNull(child.typeName, child.status).joinToString(" • ")
-            if (meta.isNotBlank()) {
-                Text(
-                    meta,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                val meta = listOfNotNull(child.typeName, child.status).joinToString(" / ")
+                if (meta.isNotBlank()) {
+                    Text(
+                        meta,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun FactsGrid(
-    facts: List<String>,
-) {
-    if (facts.isEmpty()) return
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        facts.forEach { fact ->
-            Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = Sand050,
-            ) {
-                Text(
-                    text = fact,
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun KeyBadge(label: String) {
-    Surface(
-        shape = RoundedCornerShape(999.dp),
-        color = Sand200,
-    ) {
-        Text(
-            text = label,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            style = MaterialTheme.typography.labelLarge,
-            color = Green900,
-        )
-    }
-}
-
-@Composable
-private fun ExecutiveActionChip(
+private fun ActionChip(
     label: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     onClick: () -> Unit,
@@ -682,67 +584,26 @@ private fun ExecutiveActionChip(
 }
 
 @Composable
-private fun EmptyInlineState(label: String) {
-    Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = Sand100,
-    ) {
-        Text(
-            label,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun DetailPanel(
-    marker: String,
+private fun SectionCard(
     title: String,
-    hint: String,
-    accent: Color,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Surface(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(28.dp),
-        color = Sand050,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
-            modifier = Modifier
-                .background(
-                    brush = Brush.verticalGradient(
-                        listOf(
-                            accent.copy(alpha = 0.95f),
-                            Sand050,
-                        ),
-                    ),
-                    shape = RoundedCornerShape(28.dp),
-                )
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Surface(
-                    shape = RoundedCornerShape(999.dp),
-                    color = Green900.copy(alpha = 0.10f),
-                ) {
-                    Text(
-                        marker,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Green900,
-                    )
-                }
-                Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                Text(
-                    hint,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+            )
             content()
         }
     }
