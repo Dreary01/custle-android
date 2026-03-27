@@ -447,10 +447,14 @@ private fun ObjectPicker(
     onSelect: (String) -> Unit,
 ) {
     var query by remember { mutableStateOf("") }
-    val selected = projectTree.firstOrNull { it.id == selectedObjectId }
-    val filtered = projectTree.filter {
-        query.isBlank() || it.name.contains(query, ignoreCase = true)
-    }.take(6)
+    val selected = remember(projectTree, selectedObjectId) {
+        projectTree.firstOrNull { it.id == selectedObjectId }
+    }
+    val filtered = remember(projectTree, query) {
+        projectTree.filter {
+            query.isBlank() || it.name.contains(query, ignoreCase = true)
+        }.take(6)
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         OutlinedTextField(

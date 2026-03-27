@@ -1,5 +1,6 @@
 package ru.custle.mobile.core.model
 
+import androidx.compose.runtime.Immutable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -171,6 +172,7 @@ data class WorkspaceDto(
 )
 
 @Serializable
+@Immutable
 data class WorkspaceMemberDto(
     val id: String,
     val email: String,
@@ -188,6 +190,7 @@ data class WorkspaceMemberDto(
 )
 
 @Serializable
+@Immutable
 data class DashboardItemDto(
     val id: String,
     val title: String? = null,
@@ -201,6 +204,7 @@ data class DashboardItemDto(
 )
 
 @Serializable
+@Immutable
 data class ObjectNodeDto(
     val id: String,
     @SerialName("type_id")
@@ -249,6 +253,7 @@ data class PlanDto(
 )
 
 @Serializable
+@Immutable
 data class ParticipantDto(
     @SerialName("object_id")
     val objectId: String,
@@ -280,6 +285,7 @@ data class AncestorDto(
 )
 
 @Serializable
+@Immutable
 data class ObjectDetailDto(
     val id: String,
     @SerialName("type_id")
@@ -311,6 +317,7 @@ data class ObjectDetailDto(
 )
 
 @Serializable
+@Immutable
 data class TodoDto(
     val id: String,
     val title: String,
@@ -325,6 +332,7 @@ data class TodoDto(
 )
 
 @Serializable
+@Immutable
 data class SearchResultDto(
     val type: String,
     val id: String,
@@ -415,6 +423,7 @@ data class Session(
     val activeWorkspaceId: String? = null,
 )
 
+@Immutable
 data class DashboardSnapshot(
     val requests: List<DashboardItemDto> = emptyList(),
     val directions: List<DashboardItemDto> = emptyList(),
@@ -430,6 +439,7 @@ data class AppUpdateMetadata(
     val publishedAt: String? = null,
 )
 
+@Immutable
 data class ObjectDetailBundle(
     val detail: ObjectDetailDto,
     val ancestors: List<AncestorDto> = emptyList(),
@@ -440,6 +450,7 @@ data class ObjectDetailBundle(
     val requisiteNames: Map<String, String> = emptyMap(),
 )
 
+@Immutable
 data class WidgetPlacement(
     val widgetId: String,
     val colSpan: Int = 12,

@@ -1,5 +1,6 @@
 package ru.custle.mobile.navigation
 
+import androidx.compose.runtime.Stable
 import ru.custle.mobile.core.model.DashboardSnapshot
 import ru.custle.mobile.core.model.ObjectDetailBundle
 import ru.custle.mobile.core.model.ObjectNodeDto
@@ -43,6 +44,7 @@ enum class MainSection {
     PROFILE,
 }
 
+@Stable
 data class CustleUiState(
     val destination: RootDestination = RootDestination.Loading,
     val section: MainSection = MainSection.DASHBOARD,

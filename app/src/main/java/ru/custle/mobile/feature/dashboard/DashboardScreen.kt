@@ -51,6 +51,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -271,14 +273,17 @@ private fun CompactHeader(
     onRefresh: () -> Unit,
     onProfile: () -> Unit,
 ) {
-    val todayLabel = LocalDate.now()
-        .format(DateTimeFormatter.ofPattern("d MMMM, EEEE", Locale("ru")))
+    val todayLabel = remember {
+        LocalDate.now().format(DateTimeFormatter.ofPattern("d MMMM, EEEE", Locale("ru")))
+    }
 
-    val greeting = when (LocalTime.now().hour) {
-        in 5..11 -> "Доброе утро"
-        in 12..17 -> "Добрый день"
-        in 18..22 -> "Добрый вечер"
-        else -> "Доброй ночи"
+    val greeting = remember {
+        when (LocalTime.now().hour) {
+            in 5..11 -> "Доброе утро"
+            in 12..17 -> "Добрый день"
+            in 18..22 -> "Добрый вечер"
+            else -> "Доброй ночи"
+        }
     }
 
     Column(
@@ -415,13 +420,7 @@ private fun NavChip(
     onClick: () -> Unit,
 ) {
     Surface(
-        modifier = Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(),
-                onClick = onClick,
-            ),
+        onClick = onClick,
         shape = RoundedCornerShape(10.dp),
         color = if (highlight) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
         border = if (!highlight) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null,
@@ -757,30 +756,30 @@ private fun SecondaryNavItem(
     icon: ImageVector,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(),
-                onClick = onClick,
-            )
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.background,
     ) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
-        Text(
-            label,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
-        Icon(
-            Icons.AutoMirrored.Rounded.ArrowForward, null,
-            tint = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.size(14.dp),
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            Text(
+                label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                Icons.AutoMirrored.Rounded.ArrowForward, null,
+                tint = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.size(14.dp),
+            )
+        }
     }
 }

@@ -102,19 +102,22 @@ fun ProjectsScreen(
     // Current level nodes
     val currentNodes = if (navStack.isEmpty()) tree else navStack.last().children
 
-    // Search results (flat with paths)
-    val searchResults = if (query.isNotBlank()) flatSearch(tree, query.trim()) else emptyList()
-
-    // Filtered nodes for current level
-    val displayNodes = when {
-        query.isNotBlank() -> emptyList() // use searchResults instead
-        statusFilter != StatusFilter.ALL -> currentNodes.filter { node ->
-            node.status?.lowercase() in statusFilter.keys
-        }
-        else -> currentNodes
+    // Memoize heavy computations
+    val searchResults = remember(tree, query) {
+        if (query.isNotBlank()) flatSearch(tree, query.trim()) else emptyList()
     }
 
-    val totalNodes = countNodes(tree)
+    val displayNodes = remember(currentNodes, query, statusFilter) {
+        when {
+            query.isNotBlank() -> emptyList()
+            statusFilter != StatusFilter.ALL -> currentNodes.filter { node ->
+                node.status?.lowercase() in statusFilter.keys
+            }
+            else -> currentNodes
+        }
+    }
+
+    val totalNodes = remember(tree) { countNodes(tree) }
     val isSearching = query.isNotBlank()
 
     Column(
@@ -258,15 +261,18 @@ private fun ProjectsHeader(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 // Root
-                Text(
-                    "Все",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .clickable(onClick = onNavigateRoot)
-                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                )
+                Surface(
+                    onClick = onNavigateRoot,
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color.Transparent,
+                ) {
+                    Text(
+                        "Все",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
 
                 navStack.forEachIndexed { index, node ->
                     Icon(
@@ -275,19 +281,31 @@ private fun ProjectsHeader(
                         modifier = Modifier.size(16.dp),
                     )
                     val isLast = index == navStack.lastIndex
-                    Text(
-                        node.name,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = if (isLast) MaterialTheme.colorScheme.onSurface
-                        else MaterialTheme.colorScheme.primary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = if (!isLast) Modifier
-                            .clip(RoundedCornerShape(6.dp))
-                            .clickable { onNavigateTo(index) }
-                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                        else Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                    )
+                    if (!isLast) {
+                        Surface(
+                            onClick = { onNavigateTo(index) },
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color.Transparent,
+                        ) {
+                            Text(
+                                node.name,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.primary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    } else {
+                        Text(
+                            node.name,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        )
+                    }
                 }
             }
         }
